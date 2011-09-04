@@ -384,7 +384,7 @@
 				android:summary="@string/more_scrolling_buttons_summ"
 				android:key="scrolling_buttons"/>
 			<CheckBoxPreference
-			    android:id="@+id/double_scrolling_checkbox"
+			        android:id="@+id/double_scrolling_checkbox"
 				android:title="@string/double_scrolling_gap"
 				android:defaultValue="false"
 				android:summary="@string/double_scrolling_gap_summ"
