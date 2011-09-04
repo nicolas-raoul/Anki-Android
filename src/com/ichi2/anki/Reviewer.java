@@ -1917,6 +1917,7 @@ public class Reviewer extends Activity implements IButtonListener{
         mShowProgressBars = preferences.getBoolean("progressBars", true);
         mPrefUseTimer = preferences.getBoolean("timeoutAnswer", false);
         mWaitSecond = preferences.getInt("timeoutAnswerSeconds", 20);
+        
         mScrollingButtons = preferences.getBoolean("scrolling_buttons", true);
         mDoubleScrolling =  preferences.getBoolean("double_scrolling", true);
         mGesturesEnabled = preferences.getBoolean("swipe", false);
