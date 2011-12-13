@@ -2691,7 +2691,7 @@ public class StudyOptions extends Activity implements IButtonListener {
 
             // mCompat.invalidateOptionsMenu(StudyOptions.this);
             // }
-            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
 
             allTags = null;
 
