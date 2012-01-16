@@ -2075,7 +2075,7 @@ public class Deck {
         if (check) {
             // Collapse spaced cards before reverting back to old scheduler
             reset();
-            return getCardId(false);
+            return 0;
         }
         // If we're in a custom scheduler, we may need to switch back
         if (finishSchedulerMethod != null) {
