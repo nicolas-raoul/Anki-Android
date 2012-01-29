@@ -19,7 +19,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
@@ -27,7 +26,6 @@ import java.text.ParseException;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import android.app.Activity;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -41,7 +39,6 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -105,21 +102,7 @@ import com.zeemote.zc.util.JoystickToButtonAdapter;
 
 import org.amr.arabic.ArabicUtilities;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.text.DecimalFormat;
-import java.text.DecimalFormatSymbols;
-import java.text.ParseException;
-import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-public class Reviewer extends Activity implements IButtonListener{
+public class Reviewer extends AnkiActivity implements IButtonListener{
     /**
      * Result codes that are returned when this activity finishes.
      */
@@ -585,7 +568,7 @@ public class Reviewer extends Activity implements IButtonListener{
             	if (mInputWorkaround) {
                 	Log.e(AnkiDroidApp.TAG, "Error on using InputWorkaround: " + e + " --> disabled");
                 	PrefSettings.getSharedPrefs(getBaseContext()).edit().putBoolean("inputWorkaround", false).commit();            		
-                	finish();
+                	finishWithoutAnimation();
             	}
             }
             return false;
@@ -789,14 +772,11 @@ public class Reviewer extends Activity implements IButtonListener{
                     Log.e(AnkiDroidApp.TAG, "onPostExecute - Dialog dismiss Exception = " + e.getMessage());
                 }
             }
-        	finish();
-        	if (Integer.valueOf(android.os.Build.VERSION.SDK) > 4) {
-        		if (mShowCongrats) {
-        			ActivityTransitionAnimation.slide(Reviewer.this, ActivityTransitionAnimation.FADE);
-        		} else {
-        			ActivityTransitionAnimation.slide(Reviewer.this, ActivityTransitionAnimation.RIGHT);
-        		}
-        	}
+        	if (mShowCongrats) {
+            	finishWithAnimation(ActivityTransitionAnimation.FADE);
+       		} else {
+            	finishWithAnimation(ActivityTransitionAnimation.RIGHT);
+       		}
         }
         @Override
         public void onProgressUpdate(DeckTask.TaskData... values) {
@@ -1442,7 +1422,7 @@ public class Reviewer extends Activity implements IButtonListener{
 
     private void finishNoStorageAvailable() {
     	Reviewer.this.setResult(StudyOptions.CONTENT_NO_EXTERNAL_STORAGE);
-    	finish();
+    	finishWithoutAnimation();
     }
 
 
@@ -1457,10 +1437,7 @@ public class Reviewer extends Activity implements IButtonListener{
             editCard.putExtra(CardEditor.EXTRA_DECKPATH, DeckManager.getMainDeckPath());
         	sEditorCard = mCurrentCard;
         	setOutAnimation(true);
-            startActivityForResult(editCard, EDIT_CURRENT_CARD);
-            if (Integer.valueOf(android.os.Build.VERSION.SDK) > 4) {
-                ActivityTransitionAnimation.slide(Reviewer.this, ActivityTransitionAnimation.LEFT);
-            }
+            startActivityForResultWithAnimation(editCard, EDIT_CURRENT_CARD, ActivityTransitionAnimation.LEFT);
             return true;
         }
     }
@@ -1514,7 +1491,7 @@ public class Reviewer extends Activity implements IButtonListener{
             clipboardSetText("");
             if (mLookUpIcon.getVisibility() == View.VISIBLE) {
                 mLookUpIcon.setVisibility(View.GONE);
-                mLookUpIcon.setAnimation(ViewAnimation.fade(ViewAnimation.FADE_OUT, mFadeDuration, 0));        	
+                enableViewAnimation(mLookUpIcon, ViewAnimation.fade(ViewAnimation.FADE_OUT, mFadeDuration, 0));
             }        	
         }
         Deck deck = DeckManager.getMainDeck();
@@ -1956,9 +1933,9 @@ public class Reviewer extends Activity implements IButtonListener{
     	if (fade) {
     		int duration = mShowAnimations ? mAnimationDurationTurn / 2 : mFadeDuration;
     		if (visible == View.VISIBLE) {
-        		view.setAnimation(ViewAnimation.fade(ViewAnimation.FADE_IN, duration, mShowAnimations ? duration : 0));    			
+        		enableViewAnimation(view, ViewAnimation.fade(ViewAnimation.FADE_IN, duration, mShowAnimations ? duration : 0));
     		} else {
-        		view.setAnimation(ViewAnimation.fade(ViewAnimation.FADE_OUT, duration, 0));
+        		enableViewAnimation(view, ViewAnimation.fade(ViewAnimation.FADE_OUT, duration, 0));
     		}
     	}
     }
@@ -2915,41 +2892,45 @@ public class Reviewer extends Activity implements IButtonListener{
         mFlipCardLayout.setEnabled(false);
         mTouchLayer.setVisibility(View.INVISIBLE);
 
-        switch (mCurrentEase) {
-            case Card.EASE_FAILED:
-                mEase1Layout.setClickable(false);
-                mEase2Layout.setEnabled(false);
-                mEase3Layout.setEnabled(false);
-                mEase4Layout.setEnabled(false);
-                break;
+        if (animationDisabled()) {
+        	// Do nothing, better no animation on E-Ink display
+        } else {
+        	switch (mCurrentEase) {
+            	case Card.EASE_FAILED:
+            		mEase1Layout.setClickable(false);
+            		mEase2Layout.setEnabled(false);
+            		mEase3Layout.setEnabled(false);
+            		mEase4Layout.setEnabled(false);
+            		break;
 
-            case Card.EASE_HARD:
-                mEase1Layout.setEnabled(false);
-                mEase2Layout.setClickable(false);
-                mEase3Layout.setEnabled(false);
-                mEase4Layout.setEnabled(false);
-                break;
+            	case Card.EASE_HARD:
+            		mEase1Layout.setEnabled(false);
+            		mEase2Layout.setClickable(false);
+            		mEase3Layout.setEnabled(false);
+            		mEase4Layout.setEnabled(false);
+            		break;
 
-            case Card.EASE_MID:
-                mEase1Layout.setEnabled(false);
-                mEase2Layout.setEnabled(false);
-                mEase3Layout.setClickable(false);
-                mEase4Layout.setEnabled(false);
-                break;
+            	case Card.EASE_MID:
+            		mEase1Layout.setEnabled(false);
+            		mEase2Layout.setEnabled(false);
+            		mEase3Layout.setClickable(false);
+            		mEase4Layout.setEnabled(false);
+            		break;
 
-            case Card.EASE_EASY:
-                mEase1Layout.setEnabled(false);
-                mEase2Layout.setEnabled(false);
-                mEase3Layout.setEnabled(false);
-                mEase4Layout.setClickable(false);
-                break;
+            	case Card.EASE_EASY:
+            		mEase1Layout.setEnabled(false);
+            		mEase2Layout.setEnabled(false);
+            		mEase3Layout.setEnabled(false);
+            		mEase4Layout.setClickable(false);
+            		break;
 
-            default:
-                mEase1Layout.setEnabled(false);
-                mEase2Layout.setEnabled(false);
-                mEase3Layout.setEnabled(false);
-                mEase4Layout.setEnabled(false);
-                break;
+            	default:
+            		mEase1Layout.setEnabled(false);
+            		mEase2Layout.setEnabled(false);
+            		mEase3Layout.setEnabled(false);
+            		mEase4Layout.setEnabled(false);
+            		break;
+        	}
         }
 
         if (mPrefTimer) {
@@ -3261,8 +3242,7 @@ public class Reviewer extends Activity implements IButtonListener{
         if (saveDeck) {
             DeckTask.launchDeckTask(DeckTask.TASK_TYPE_SAVE_DECK, mSaveAndResetDeckHandler, new DeckTask.TaskData(DeckManager.getMainDeck(), 0));
     	} else {
-    		finish();
-    		ActivityTransitionAnimation.slide(Reviewer.this, ActivityTransitionAnimation.RIGHT);
+    		finishWithAnimation(ActivityTransitionAnimation.RIGHT);
     	}
     }
 
@@ -3359,12 +3339,12 @@ public class Reviewer extends Activity implements IButtonListener{
                 if (clipboardGetText().length() != 0 && Lookup.isAvailable()) {
                 	if (mLookUpIcon.getVisibility() != View.VISIBLE) {
             			mLookUpIcon.setVisibility(View.VISIBLE);
-                        mLookUpIcon.setAnimation(ViewAnimation.fade(ViewAnimation.FADE_IN, mFadeDuration, 0));                		
+                        enableViewAnimation(mLookUpIcon, ViewAnimation.fade(ViewAnimation.FADE_IN, mFadeDuration, 0));                		
                 	}
                 } else {
                 	if (mLookUpIcon.getVisibility() == View.VISIBLE) {
                         mLookUpIcon.setVisibility(View.GONE);
-                        mLookUpIcon.setAnimation(ViewAnimation.fade(ViewAnimation.FADE_OUT, mFadeDuration, 0));                		
+                        enableViewAnimation(mLookUpIcon, ViewAnimation.fade(ViewAnimation.FADE_OUT, mFadeDuration, 0));                		
                 	}
                 }                
     		}
