@@ -10,7 +10,7 @@
   <string name="contextmenu_deckpicker_delete_deck">احذف الرزمة</string>
   <string name="delete_deck_title">احذف رزمة</string>
   <string name="delete_deck_message">هل أنت متأكد من رغبتك في حذف كل البطاقات في%s؟</string>
-  <string name="delete_deck_confirm">إحذفه</string>
+  <string name="delete_deck_confirm">احذف</string>
   <string name="new_version_title">الإصدار الجديد:</string>
   <string name="new_version_message">الميزات الجديدة:</string>
   <string name="no_tts_available_title">نطق النصوص</string>

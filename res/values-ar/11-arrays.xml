@@ -73,7 +73,7 @@
   <string-array name="deck_order_labels">
     <item>بآخر وصول</item>
     <item>أبجدي</item>
-    <item>بعدد البطاقات المستحقة</item>
+    <item>بعدد البطاقات للمراجعة</item>
     <item>بعدد البطاقات الكلي</item>
     <item>بعدد البطاقات الجديدة الكلي</item>
   </string-array>

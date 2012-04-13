@@ -33,7 +33,7 @@
   <string name="sync_log_db_error">حدث خطأ في قاعدة البيانات.</string>
   <string name="no_user_password_error_message">من أجل المضي بهذه العملية، تحتاج إلى لحساب أنكي ويب وتسجيل الدخول.</string>
   <string name="fact">حقيقة</string>
-  <string name="facts">الحقائق</string>
+  <string name="facts">حقيقة</string>
   <string name="username">اسم المستخدم</string>
   <string name="password">كلمة المرور</string>
   <string name="password_warning">ملاحظة: سيتم إرسال نص خام</string>

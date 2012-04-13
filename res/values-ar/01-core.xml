@@ -97,20 +97,20 @@
     <item>سنوات%s</item>
   </string-array>
   <plurals name="studyoptions_window_title">
-    <item quantity="one">%1$s(1 من %3$d مستحق)</item>
-    <item quantity="other">%1$s(%2$d من %3$d مستحق)</item>
+    <item quantity="one">%1$s(1 من %3$d للمراجعة)</item>
+    <item quantity="other">%1$s(%2$d من %3$d للمراجعة)</item>
   </plurals>
   <plurals name="deckpicker_title">
-    <item quantity="one">كل الرزم: 1 من %2$d مستحقة (%3$s)</item>
-    <item quantity="other">كل الرزم: %1$d من %2$d مستحقة (%3$s)</item>
+    <item quantity="one">كل الرزم: 1 من %2$d للمراجعة (%3$s)</item>
+    <item quantity="other">كل الرزم: %1$d من %2$d للمراجعة (%3$s)</item>
   </plurals>
   <plurals name="deckpicker_title_minutes">
     <item quantity="one">دقيقة.</item>
     <item quantity="other">%d دقيقة.</item>
   </plurals>
   <plurals name="deckpicker_due">
-    <item quantity="one">1 من %2$d مستحقة</item>
-    <item quantity="other">%1$d من %2$d مستحقة</item>
+    <item quantity="one">1 من %2$d للمراجعة</item>
+    <item quantity="other">%1$d من %2$d للمراجعة</item>
   </plurals>
   <plurals name="reviewer_window_title">
     <item quantity="one">%1$s (بقيت دقيقة)</item>
