@@ -77,6 +77,7 @@ public class Themes {
 	private static int mBackgroundColor;
 	private static int mBackgroundDarkColor = 0;
 	private static int mDialogBackgroundColor = 0;
+	private static int mDialogTextColor = 0;
 	private static int mToastBackground = 0;
 	private static int[] mCardbrowserItemBorder;
 	private static int[] mChartColors;
@@ -297,6 +298,7 @@ public class Themes {
 			switch (mCurrentTheme) {
 			case THEME_ANDROID_DARK:
 				mDialogBackgroundColor = R.color.card_browser_background;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mProgressbarsBackgroundColor = 0;
 				mProgressbarsFrameColor = 0;
 				mProgressbarsMatureColor = 0;
@@ -348,6 +350,7 @@ public class Themes {
 				mToastBackground = 0;
 				mBackgroundDarkColor = 0;
 				mDialogBackgroundColor = R.color.card_browser_background;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mCardbrowserItemBorder = new int[] {0, R.color.card_browser_marked, R.color.card_browser_suspended, R.color.card_browser_marked};
 				mReviewerProgressbar = mProgressbarsYoungColor;
 				mChartColors = new int[] {Color.BLACK, Color.WHITE};
@@ -385,6 +388,7 @@ public class Themes {
 				mBackgroundColor = R.color.background_blue;
 				mToastBackground = R.drawable.blue_toast_frame;
 				mDialogBackgroundColor = R.color.background_dialog_blue;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mBackgroundDarkColor = R.color.background_dark_blue;
 				mReviewerProgressbar = R.color.reviewer_progressbar_session_blue;
 				mCardbrowserItemBorder = new int[] {R.drawable.blue_bg_cardbrowser, R.drawable.blue_bg_cardbrowser_marked, R.drawable.blue_bg_cardbrowser_suspended, R.drawable.blue_bg_cardbrowser_marked_suspended};
@@ -422,6 +426,7 @@ public class Themes {
 				mBackgroundColor = R.color.background_blue;
 				mToastBackground = R.drawable.blue_toast_frame;
 				mDialogBackgroundColor = R.color.background_dialog_blue;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mBackgroundDarkColor = R.color.background_dark_blue;
 				mReviewerProgressbar = R.color.reviewer_progressbar_session_blue;
 				mCardbrowserItemBorder = new int[] {R.drawable.blue_bg_cardbrowser, R.drawable.blue_bg_cardbrowser_marked, R.drawable.blue_bg_cardbrowser_suspended, R.drawable.blue_bg_cardbrowser_marked_suspended};
@@ -462,6 +467,7 @@ public class Themes {
 				mBackgroundColor = R.color.white_background;
 				mToastBackground = R.drawable.white_toast_frame;
 				mDialogBackgroundColor = mBackgroundColor;
+				mDialogTextColor = mContext.getResources().getColor(R.color.black);
 			mBackgroundDarkColor = R.color.background_dark_blue;
 			mReviewerProgressbar = R.color.reviewer_progressbar_session_blue;
 				mCardbrowserItemBorder = new int[] {R.drawable.white_bg_cardbrowser, R.drawable.white_bg_cardbrowser_marked, R.drawable.white_bg_cardbrowser_suspended, R.drawable.white_bg_cardbrowser_marked_suspended};
@@ -615,6 +621,14 @@ public class Themes {
 		return mDialogBackgroundColor;
 	}
 
+	/**
+	 * Gets the text color that should be used for dialog text to match the
+	 * background color.
+	 * @return An integer representing an ARGB color value.
+	 */
+	public static int getDialogTextColor() {
+		return mDialogTextColor;
+	}
 
 	public static int getTheme() {
 		return mCurrentTheme;
@@ -625,6 +639,14 @@ public class Themes {
 		return mCardbrowserItemBorder;
 	}
 
+	/**
+	 * Formats an integer value as hexadecimal HTML color string.
+	 * @param color An integer representing an ARGB color value.
+	 * @return Hexadecimal HTML color string, e.g. #FF00FF
+	 */
+	public static String getHtmlColor(int color) {
+		return String.format("#%06X", color & 0xFFFFFF);
+	}
 
 	public static void showThemedToast(Context context, String text, boolean shortLength) {
 		Toast result = Toast.makeText(context, text, shortLength ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG);

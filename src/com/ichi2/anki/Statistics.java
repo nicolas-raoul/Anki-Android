@@ -323,7 +323,7 @@ public class Statistics {
        	int timeTomorrow = sDeckSummaryValues.getAsInteger("timeTomorrow");
 
     	StringBuilder builder = new StringBuilder();
-       	builder.append("<html><body text=\"#FFFFFF\">");
+       	builder.append(String.format("<html><body text=\"%s\">", Themes.getHtmlColor(Themes.getDialogTextColor())));
        	builder.append(res.getString(R.string.deck_summary_deck_age, deckAge)).append("<br>");
        	builder.append(res.getString(R.string.deck_summary_cards)).append(" <b>").append(Integer.toString(cardCount)).append("</b><br>");
        	builder.append(res.getString(R.string.deck_summary_facts)).append(" <b>").append(Integer.toString(sDeckSummaryValues.getAsInteger("factCount"))).append("</b><br>");
