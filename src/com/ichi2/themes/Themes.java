@@ -624,6 +624,15 @@ public class Themes {
 		return mDialogTextColor;
 	}
 
+	/**
+	 * Gets the text color for disabled elements.
+	 * @return An integer representing an ARGB color value.
+	 */
+	public static int getDisabledColor() {
+		// TODO: Make this customizeable for each theme
+		return mContext.getResources().getColor(R.color.studyoptions_foreground_deactivated);
+	}
+
 	public static int getTheme() {
 		return mCurrentTheme;
 	}

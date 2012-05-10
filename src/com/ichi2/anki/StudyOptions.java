@@ -1411,7 +1411,7 @@ public class StudyOptions extends Activity implements IButtonListener {
 	                    mEditSessionQuestions.clearFocus();
 	                    ((InputMethodManager)getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(mEditSessionTime.getWindowToken(), 0);
 	                }
-	                int color = getResources().getColor((isChecked) ? R.color.studyoptions_foreground : R.color.studyoptions_foreground_deactivated);
+	                int color = (isChecked ? Themes.getForegroundColor() : Themes.getDisabledColor());
 	                mLimitSessionTv1.setTextColor(color);
 	                mLimitSessionTv2.setTextColor(color);
 	            }
@@ -1430,7 +1430,7 @@ public class StudyOptions extends Activity implements IButtonListener {
 	                    mLimitTagRevActiveCheckBox.setChecked(false);
 	                    mLimitTagRevInactiveCheckBox.setChecked(false);
 	                }
-	                int color = getResources().getColor((isChecked) ? R.color.studyoptions_foreground : R.color.studyoptions_foreground_deactivated);
+	                int color = (isChecked ? Themes.getForegroundColor() : Themes.getDisabledColor());
 	                mLimitTagTv1.setTextColor(color);
 	                mLimitTagTv2.setTextColor(color);
 	                mLimitTagTv3.setTextColor(color);
