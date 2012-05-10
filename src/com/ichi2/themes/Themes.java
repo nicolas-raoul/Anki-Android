@@ -606,12 +606,6 @@ public class Themes {
 		}
 	}
 
-
-	public static int getForegroundColor() {
-		return mProgressbarsFrameColor;
-	}
-
-
 	public static int getBackgroundColor() {
 		return mBackgroundColor;
 	}
@@ -626,7 +620,7 @@ public class Themes {
 	 * background color.
 	 * @return An integer representing an ARGB color value.
 	 */
-	public static int getDialogTextColor() {
+	public static int getForegroundColor() {
 		return mDialogTextColor;
 	}
 
