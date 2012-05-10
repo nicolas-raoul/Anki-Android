@@ -330,7 +330,7 @@ public class Themes {
 				mPopupFullMedium = R.drawable.popup_full_bright;
 				mDividerHorizontalBright = R.drawable.blue_divider_horizontal_bright;
 				mBackgroundColor = R.color.white;
-				mProgressDialogFontColor = mContext.getResources().getColor(R.color.white);
+				mProgressDialogFontColor = mContext.getResources().getColor(R.color.black);
 				mNightModeButton = R.drawable.btn_keyboard_key_fulltrans_normal;
 				break;
 
@@ -368,7 +368,7 @@ public class Themes {
 				mPopupFullDark = R.drawable.popup_full_dark;
 				mDividerHorizontalBright = R.drawable.blue_divider_horizontal_bright;
 				mBackgroundColor = R.color.white;
-				mProgressDialogFontColor = mContext.getResources().getColor(R.color.white);
+				mProgressDialogFontColor = mContext.getResources().getColor(R.color.black);
 				mNightModeButton = R.drawable.btn_keyboard_key_fulltrans_normal;
 				break;
 
@@ -715,6 +715,7 @@ public class Themes {
 				contentPanel.setBackgroundResource(R.color.white);
 			}
 		}
+		// FIXME: Should not set the same color, as the top panel is always black, while the lower panel is always white!
 		((TextView) main.findViewById(R.id.alertTitle)).setTextColor(mProgressDialogFontColor);
 		((TextView) main.findViewById(R.id.message)).setTextColor(mProgressDialogFontColor);
 	}
