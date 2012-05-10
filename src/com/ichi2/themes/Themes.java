@@ -673,7 +673,8 @@ public class Themes {
         WebView view = new WebView(context);
         view.setBackgroundColor(context.getResources().getColor(mDialogBackgroundColor));
         if (includeBody) {
-        	text = "<html><body text=\"#FFFFFF\" link=\"#E37068\" alink=\"#E37068\" vlink=\"#E37068\">" + text + "</body></html>";
+            text = String.format("<html><body text=\"%s\" link=\"#E37068\" alink=\"#E37068\" vlink=\"#E37068\">%s</body></html>",
+                                  getHtmlColor(getForegroundColor()), text);
         }
         view.loadDataWithBaseURL("", text, "text/html", "UTF-8", "");
         builder.setView(view, true);
