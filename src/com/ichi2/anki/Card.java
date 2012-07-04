@@ -31,6 +31,8 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 
+import com.ichi2.themes.Themes;
+
 /**
  * A card is a presentation of a fact, and has two sides: a question and an answer. Any number of fields can appear on
  * each side. When you add a fact to Anki, cards which show that fact are generated. Some models generate one card,
@@ -790,7 +792,7 @@ public class Card {
     public String getCardDetails(Context context, boolean full) {
     	Resources res = context.getResources();
     	StringBuilder builder = new StringBuilder();
-       	builder.append("<html><body text=\"#FFFFFF\">");
+       	builder.append(String.format("<html><body text=\"%s\">", Themes.getHtmlColor(Themes.getForegroundColor())));
        	if (full) {
             builder.append("<b>");
             builder.append(res.getString(R.string.card_details_question));

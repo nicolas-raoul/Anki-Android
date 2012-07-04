@@ -77,6 +77,7 @@ public class Themes {
 	private static int mBackgroundColor;
 	private static int mBackgroundDarkColor = 0;
 	private static int mDialogBackgroundColor = 0;
+	private static int mDialogTextColor = 0;
 	private static int mToastBackground = 0;
 	private static int[] mCardbrowserItemBorder;
 	private static int[] mChartColors;
@@ -297,6 +298,7 @@ public class Themes {
 			switch (mCurrentTheme) {
 			case THEME_ANDROID_DARK:
 				mDialogBackgroundColor = R.color.card_browser_background;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mProgressbarsBackgroundColor = 0;
 				mProgressbarsFrameColor = 0;
 				mProgressbarsMatureColor = 0;
@@ -328,7 +330,7 @@ public class Themes {
 				mPopupFullMedium = R.drawable.popup_full_bright;
 				mDividerHorizontalBright = R.drawable.blue_divider_horizontal_bright;
 				mBackgroundColor = R.color.white;
-				mProgressDialogFontColor = mContext.getResources().getColor(R.color.white);
+				mProgressDialogFontColor = mContext.getResources().getColor(R.color.black);
 				mNightModeButton = R.drawable.btn_keyboard_key_fulltrans_normal;
 				break;
 
@@ -348,6 +350,7 @@ public class Themes {
 				mToastBackground = 0;
 				mBackgroundDarkColor = 0;
 				mDialogBackgroundColor = R.color.card_browser_background;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mCardbrowserItemBorder = new int[] {0, R.color.card_browser_marked, R.color.card_browser_suspended, R.color.card_browser_marked};
 				mReviewerProgressbar = mProgressbarsYoungColor;
 				mChartColors = new int[] {Color.BLACK, Color.WHITE};
@@ -365,7 +368,7 @@ public class Themes {
 				mPopupFullDark = R.drawable.popup_full_dark;
 				mDividerHorizontalBright = R.drawable.blue_divider_horizontal_bright;
 				mBackgroundColor = R.color.white;
-				mProgressDialogFontColor = mContext.getResources().getColor(R.color.white);
+				mProgressDialogFontColor = mContext.getResources().getColor(R.color.black);
 				mNightModeButton = R.drawable.btn_keyboard_key_fulltrans_normal;
 				break;
 
@@ -385,6 +388,7 @@ public class Themes {
 				mBackgroundColor = R.color.background_blue;
 				mToastBackground = R.drawable.blue_toast_frame;
 				mDialogBackgroundColor = R.color.background_dialog_blue;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mBackgroundDarkColor = R.color.background_dark_blue;
 				mReviewerProgressbar = R.color.reviewer_progressbar_session_blue;
 				mCardbrowserItemBorder = new int[] {R.drawable.blue_bg_cardbrowser, R.drawable.blue_bg_cardbrowser_marked, R.drawable.blue_bg_cardbrowser_suspended, R.drawable.blue_bg_cardbrowser_marked_suspended};
@@ -422,6 +426,7 @@ public class Themes {
 				mBackgroundColor = R.color.background_blue;
 				mToastBackground = R.drawable.blue_toast_frame;
 				mDialogBackgroundColor = R.color.background_dialog_blue;
+				mDialogTextColor = mContext.getResources().getColor(R.color.white);
 				mBackgroundDarkColor = R.color.background_dark_blue;
 				mReviewerProgressbar = R.color.reviewer_progressbar_session_blue;
 				mCardbrowserItemBorder = new int[] {R.drawable.blue_bg_cardbrowser, R.drawable.blue_bg_cardbrowser_marked, R.drawable.blue_bg_cardbrowser_suspended, R.drawable.blue_bg_cardbrowser_marked_suspended};
@@ -462,6 +467,7 @@ public class Themes {
 				mBackgroundColor = R.color.white_background;
 				mToastBackground = R.drawable.white_toast_frame;
 				mDialogBackgroundColor = mBackgroundColor;
+				mDialogTextColor = mContext.getResources().getColor(R.color.black);
 			mBackgroundDarkColor = R.color.background_dark_blue;
 			mReviewerProgressbar = R.color.reviewer_progressbar_session_blue;
 				mCardbrowserItemBorder = new int[] {R.drawable.white_bg_cardbrowser, R.drawable.white_bg_cardbrowser_marked, R.drawable.white_bg_cardbrowser_suspended, R.drawable.white_bg_cardbrowser_marked_suspended};
@@ -600,12 +606,6 @@ public class Themes {
 		}
 	}
 
-
-	public static int getForegroundColor() {
-		return mProgressbarsFrameColor;
-	}
-
-
 	public static int getBackgroundColor() {
 		return mBackgroundColor;
 	}
@@ -615,6 +615,23 @@ public class Themes {
 		return mDialogBackgroundColor;
 	}
 
+	/**
+	 * Gets the text color that should be used for dialog text to match the
+	 * background color.
+	 * @return An integer representing an ARGB color value.
+	 */
+	public static int getForegroundColor() {
+		return mDialogTextColor;
+	}
+
+	/**
+	 * Gets the text color for disabled elements.
+	 * @return An integer representing an ARGB color value.
+	 */
+	public static int getDisabledColor() {
+		// TODO: Make this customizeable for each theme
+		return mContext.getResources().getColor(R.color.studyoptions_foreground_deactivated);
+	}
 
 	public static int getTheme() {
 		return mCurrentTheme;
@@ -625,6 +642,14 @@ public class Themes {
 		return mCardbrowserItemBorder;
 	}
 
+	/**
+	 * Formats an integer value as hexadecimal HTML color string.
+	 * @param color An integer representing an ARGB color value.
+	 * @return Hexadecimal HTML color string, e.g. #FF00FF
+	 */
+	public static String getHtmlColor(int color) {
+		return String.format("#%06X", color & 0xFFFFFF);
+	}
 
 	public static void showThemedToast(Context context, String text, boolean shortLength) {
 		Toast result = Toast.makeText(context, text, shortLength ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG);
@@ -657,7 +682,8 @@ public class Themes {
         WebView view = new WebView(context);
         view.setBackgroundColor(context.getResources().getColor(mDialogBackgroundColor));
         if (includeBody) {
-        	text = "<html><body text=\"#FFFFFF\" link=\"#E37068\" alink=\"#E37068\" vlink=\"#E37068\">" + text + "</body></html>";
+            text = String.format("<html><body text=\"%s\" link=\"#E37068\" alink=\"#E37068\" vlink=\"#E37068\">%s</body></html>",
+                                  getHtmlColor(getForegroundColor()), text);
         }
         view.loadDataWithBaseURL("", text, "text/html", "UTF-8", "");
         builder.setView(view, true);
@@ -689,6 +715,7 @@ public class Themes {
 				contentPanel.setBackgroundResource(R.color.white);
 			}
 		}
+		// FIXME: Should not set the same color, as the top panel is always black, while the lower panel is always white!
 		((TextView) main.findViewById(R.id.alertTitle)).setTextColor(mProgressDialogFontColor);
 		((TextView) main.findViewById(R.id.message)).setTextColor(mProgressDialogFontColor);
 	}
