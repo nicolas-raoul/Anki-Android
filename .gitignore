@@ -16,6 +16,7 @@ local.properties
 proguard.cfg
 coverage.em
 
+.metadata/
 .idea/
 out/
 *.iml
