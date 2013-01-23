@@ -46,7 +46,6 @@ public class Note implements Cloneable {
     private int mFlags;
 
     private Map<String, Pair<Integer, JSONObject>> mFMap;
-    private long mScm;
 
 
     public Note(Collection col, long id) {
@@ -80,7 +79,6 @@ public class Note implements Cloneable {
             }
             mData = "";
             mFMap = mCol.getModels().fieldMap(mModel);
-            mScm = mCol.getScm();
         }
     }
 
@@ -102,7 +100,6 @@ public class Note implements Cloneable {
             mTags = mCol.getTags().split(cursor.getString(4));
             mFlags = cursor.getInt(6);
             mData = cursor.getString(7);
-            mScm = mCol.getScm();
         } finally {
             if (cursor != null) {
                 cursor.close();

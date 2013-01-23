@@ -17,6 +17,7 @@
 
 package com.ichi2.libanki;
 
+import android.annotation.SuppressLint;
 import android.content.ContentValues;
 import android.content.res.Resources;
 import android.database.Cursor;
@@ -29,8 +30,6 @@ import com.ichi2.anki.AnkiDroidApp;
 import com.ichi2.anki.Pair;
 import com.ichi2.anki.R;
 import com.ichi2.anki.UIUtils;
-import com.ichi2.async.DeckTask;
-import com.samskivert.mustache.Mustache;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -41,7 +40,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.regex.Matcher;
@@ -570,7 +568,8 @@ public class Collection {
 	public ArrayList<Long> genCards(List<Long> nids) {
 	    return genCards(Utils.arrayList2array(nids));
 	}
-    public ArrayList<Long> genCards(long[] nids) {
+    @SuppressLint("UseSparseArrays")
+	public ArrayList<Long> genCards(long[] nids) {
         // build map of (nid,ord) so we don't create dupes
         String snids = Utils.ids2str(nids);
         HashMap<Long, HashMap<Integer, Long>> have = new HashMap<Long, HashMap<Integer, Long>>();
@@ -1167,7 +1166,8 @@ public class Collection {
     }
 
 
-    public long undo() {
+    @SuppressWarnings("unchecked")
+	public long undo() {
     	Object[] data = mUndo.removeLast();
     	switch ((Integer)data[0]) {
     	case UNDO_REVIEW:

@@ -19,7 +19,6 @@ package com.ichi2.libanki;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Locale;
 
 import org.json.JSONArray;
 import org.json.JSONException;

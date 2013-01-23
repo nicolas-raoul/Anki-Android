@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 public class Sched {
@@ -92,7 +91,6 @@ public class Sched {
     public static final int MODEL_STD = 0;
     public static final int MODEL_CLOZE = 1;
 
-    private static final String[] REV_ORDER_STRINGS = { "ivl DESC", "ivl" };
     private static final int[] FACTOR_ADDITION_VALUES = { -150, 0, 150 };
 
     // not in libanki
@@ -128,9 +126,6 @@ public class Sched {
     private LinkedList<Long> mNewDids;
     private LinkedList<Long> mLrnDids;
     private LinkedList<Long> mRevDids;
-
-    private TreeMap<Integer, Integer> mGroupConfs;
-    private TreeMap<Integer, JSONObject> mConfCache;
 
     private HashMap<Long, Pair<String[], long[]>> mCachedDeckCounts;
 
@@ -404,17 +399,6 @@ public class Sched {
         }
     }
 
-
-    private int _walkingCount() {
-        return _walkingCount(null, null, null);
-    }
-
-
-    private int _walkingCount(LinkedList<Long> dids) {
-        return _walkingCount(dids, null, null);
-    }
-
-
     private int _walkingCount(Method limFn, Method cntFn) {
         return _walkingCount(null, limFn, cntFn);
     }
@@ -479,7 +463,7 @@ public class Sched {
      */
 
     /** LIBANKI: not in libanki */
-    public Object[] deckCounts() {
+    public DeckCounts getDeckCounts() {
         TreeSet<Object[]> decks = deckDueTree(0);
         int[] counts = new int[] { 0, 0, 0 };
         for (Object[] deck : decks) {
@@ -512,7 +496,7 @@ public class Sched {
 				throw new RuntimeException(e);
 			}
         }
-        return new Object[] { decksNet, eta(counts), mCol.cardCount() };
+        return new DeckCounts(decksNet, eta(counts), mCol.cardCount());
     }
 
     public boolean getSpreadRev() {
@@ -617,7 +601,8 @@ public class Sched {
     private TreeSet<Object[]> _groupChildrenMain(TreeSet<Object[]> grps) {
     	return _groupChildrenMain(grps, 0);
     }
-    private TreeSet<Object[]> _groupChildrenMain(TreeSet<Object[]> grps, int depth) {
+    @SuppressWarnings("unchecked")
+	private TreeSet<Object[]> _groupChildrenMain(TreeSet<Object[]> grps, int depth) {
         TreeSet<Object[]> tree = new TreeSet<Object[]>(new DeckNameCompare());
         // group and recurse
         Iterator<Object[]> it = grps.iterator();
@@ -773,7 +758,9 @@ public class Sched {
     }
 
 
-    private int _cntFnNew(long did, int lim) {
+    // used by Class.getDeclaredMethod() in _resetNewCount()
+    @SuppressWarnings("unused")
+	private int _cntFnNew(long did, int lim) {
         return mCol.getDb().queryScalar(
                 "SELECT count() FROM (SELECT 1 FROM cards WHERE did = " + did + " AND queue = 0 LIMIT " + lim + ")");
     }
@@ -1186,7 +1173,8 @@ public class Sched {
      * Sorts a card into the lrn queue LIBANKI: not in libanki
      */
     private void _sortIntoLrn(long due, long id) {
-        Iterator i = mLrnQueue.listIterator();
+        @SuppressWarnings("rawtypes")
+		Iterator i = mLrnQueue.listIterator();
         int idx = 0;
         while (i.hasNext()) {
             if (((long[]) i.next())[0] > due) {
@@ -1460,8 +1448,9 @@ public class Sched {
         }
     }
 
-
-    private int _cntFnRev(long did, int lim) {
+    // used by Class.getDeclaredMethod() in _resetRevCount()
+    @SuppressWarnings("unused")
+	private int _cntFnRev(long did, int lim) {
         return mCol.getDb().queryScalar(
                 "SELECT count() FROM (SELECT id FROM cards WHERE did = " + did + " AND queue = 2 and due <= " + mToday
                         + " LIMIT " + lim + ")");
@@ -2057,7 +2046,6 @@ public class Sched {
             dict.put("resched", conf.getBoolean("resched"));
             return dict;
         } catch (JSONException e) {
-        	JSONObject conf = _cardConf(card);
         	if (!mCol.getDecks().isDyn(card.getDid()) && card.getODid() != 0) {
         		// workaround, if a card's deck is a normal deck, but odid != 0
         		card.setODue(0);
@@ -2422,7 +2410,7 @@ public class Sched {
         		mCachedDeckCounts.clear();
         		if (counts == null) {
         			// reload counts
-        			counts = (TreeSet<Object[]>)deckCounts()[0];
+        			counts = getDeckCounts().getDecksNet();
         		}
             	for (Object[] d : counts) {
             		int done = 0;
@@ -2782,6 +2770,22 @@ public class Sched {
     public LinkedList<long[]> getNewQueue() {
         return mNewQueue;
     }
+    
+    public class DeckCounts {
+    	private TreeSet<Object[]> decksNet;
+		public final int eta;
+		public final int cardCount;
+
+		public DeckCounts(TreeSet<Object[]> decksNet, int eta, int cardCount) {
+			this.decksNet = decksNet;
+			this.eta = eta;
+			this.cardCount = cardCount;
+		}
+		
+		public TreeSet<Object[]> getDecksNet() {
+			return decksNet;
+		}
+    }
 
     private class DeckNameCompare implements Comparator<Object[]> {
         @Override
@@ -2807,7 +2811,7 @@ public class Sched {
     private class DueComparator implements Comparator<long[]> {
         @Override
         public int compare(long[] lhs, long[] rhs) {
-            return new Long(lhs[0]).compareTo(rhs[0]);
+            return Long.valueOf(lhs[0]).compareTo(rhs[0]);
         }
     }
 

@@ -19,11 +19,9 @@
 
 package com.ichi2.libanki;
 
-import android.annotation.TargetApi;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
@@ -37,23 +35,19 @@ import com.ichi2.anki.AnkiDb;
 import com.ichi2.anki.AnkiDroidApp;
 import com.ichi2.anki.AnkiFont;
 import com.ichi2.anki.R;
-import com.ichi2.async.Connection.OldAnkiDeckFilter;
 import com.mindprod.common11.BigDate;
 
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -64,7 +58,6 @@ import java.nio.channels.FileChannel;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.Date;
-import java.text.Normalizer;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -72,12 +65,10 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.GregorianCalendar;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.TimeZone;
-import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.Deflater;
@@ -99,9 +90,6 @@ public class Utils {
 
     private static NumberFormat mCurrentNumberFormat;
     private static NumberFormat mCurrentPercentageFormat;
-
-    private static TreeSet<Long> sIdTree;
-    private static long sIdTime;
 
     private static final int TIME_SECONDS = 0;
     private static final int TIME_MINUTES = 1;
@@ -177,9 +165,9 @@ public class Utils {
     	double ftime = convertSecondsTo(time, type);
 
     	int formatId;
-    	if (false){//_short) {
-    	    //formatId = R.array.next_review_short;
-    	} else {
+//    	if (false){//_short) {
+//    	    //formatId = R.array.next_review_short;
+//    	} else {
         	switch (format) {
         	case TIME_FORMAT_IN:
         		if (Math.round(ftime * 10) == 10) {
@@ -204,7 +192,7 @@ public class Utils {
         		}
         		break;
         	}
-    	}
+//    	}
 
     	String timeString = String.format(AnkiDroidApp.getAppResources().getStringArray(formatId)[type], boldNumber ? "<b>" + fmtDouble(ftime, point) + "</b>" : fmtDouble(ftime, point));
 		if (boldNumber && time == 1) {
@@ -299,10 +287,11 @@ public class Utils {
     }
 
 
-    private String minimizeHTML(String s) {
-    	// TODO
-    	return s;
-    }
+ // TODO
+//    private String minimizeHTML(String s) {
+//    	
+//    	return s;
+//    }
 
 
     /**
@@ -818,64 +807,64 @@ public class Utils {
 
 
     // Print methods
-    public static void printJSONObject(JSONObject jsonObject) {
-        printJSONObject(jsonObject, "-", null);
-    }
+//    public static void printJSONObject(JSONObject jsonObject) {
+//        printJSONObject(jsonObject, "-", null);
+//    }
 
 
-    public static void printJSONObject(JSONObject jsonObject, boolean writeToFile) {
-        BufferedWriter buff;
-        try {
-            buff = writeToFile ?  
-                    new BufferedWriter(new FileWriter("/sdcard/payloadAndroid.txt"), 8192) : null;
-            try {
-                printJSONObject(jsonObject, "-", buff);
-            } finally {
-                if (buff != null)
-                    buff.close();
-            }
-        } catch (IOException ioe) {
-            Log.e(AnkiDroidApp.TAG, "IOException = " + ioe.getMessage());
-        }
-    }
+//    public static void printJSONObject(JSONObject jsonObject, boolean writeToFile) {
+//        BufferedWriter buff;
+//        try {
+//            buff = writeToFile ?  
+//                    new BufferedWriter(new FileWriter("/sdcard/payloadAndroid.txt"), 8192) : null;
+//            try {
+//                printJSONObject(jsonObject, "-", buff);
+//            } finally {
+//                if (buff != null)
+//                    buff.close();
+//            }
+//        } catch (IOException ioe) {
+//            Log.e(AnkiDroidApp.TAG, "IOException = " + ioe.getMessage());
+//        }
+//    }
 
 
-    private static void printJSONObject(JSONObject jsonObject, String indentation, BufferedWriter buff) {
-        try {
-            @SuppressWarnings("unchecked") Iterator<String> keys = (Iterator<String>) jsonObject.keys();
-            TreeSet<String> orderedKeysSet = new TreeSet<String>();
-            while (keys.hasNext()) {
-                orderedKeysSet.add(keys.next());
-            }
-
-            Iterator<String> orderedKeys = orderedKeysSet.iterator();
-            while (orderedKeys.hasNext()) {
-                String key = orderedKeys.next();
-
-                try {
-                    Object value = jsonObject.get(key);
-                    if (value instanceof JSONObject) {
-                        if (buff != null) {
-                            buff.write(indentation + " " + key + " : ");
-                            buff.newLine();
-                        }
-                        Log.i(AnkiDroidApp.TAG, "	" + indentation + key + " : ");
-                        printJSONObject((JSONObject) value, indentation + "-", buff);
-                    } else {
-                        if (buff != null) {
-                            buff.write(indentation + " " + key + " = " + jsonObject.get(key).toString());
-                            buff.newLine();
-                        }
-                        Log.i(AnkiDroidApp.TAG, "	" + indentation + key + " = " + jsonObject.get(key).toString());
-                    }
-                } catch (JSONException e) {
-                    Log.e(AnkiDroidApp.TAG, "JSONException = " + e.getMessage());
-                }
-            }
-        } catch (IOException e1) {
-            Log.e(AnkiDroidApp.TAG, "IOException = " + e1.getMessage());
-        }
-    }
+//    private static void printJSONObject(JSONObject jsonObject, String indentation, BufferedWriter buff) {
+//        try {
+//            @SuppressWarnings("unchecked") Iterator<String> keys = (Iterator<String>) jsonObject.keys();
+//            TreeSet<String> orderedKeysSet = new TreeSet<String>();
+//            while (keys.hasNext()) {
+//                orderedKeysSet.add(keys.next());
+//            }
+//
+//            Iterator<String> orderedKeys = orderedKeysSet.iterator();
+//            while (orderedKeys.hasNext()) {
+//                String key = orderedKeys.next();
+//
+//                try {
+//                    Object value = jsonObject.get(key);
+//                    if (value instanceof JSONObject) {
+//                        if (buff != null) {
+//                            buff.write(indentation + " " + key + " : ");
+//                            buff.newLine();
+//                        }
+//                        Log.i(AnkiDroidApp.TAG, "	" + indentation + key + " : ");
+//                        printJSONObject((JSONObject) value, indentation + "-", buff);
+//                    } else {
+//                        if (buff != null) {
+//                            buff.write(indentation + " " + key + " = " + jsonObject.get(key).toString());
+//                            buff.newLine();
+//                        }
+//                        Log.i(AnkiDroidApp.TAG, "	" + indentation + key + " = " + jsonObject.get(key).toString());
+//                    }
+//                } catch (JSONException e) {
+//                    Log.e(AnkiDroidApp.TAG, "JSONException = " + e.getMessage());
+//                }
+//            }
+//        } catch (IOException e1) {
+//            Log.e(AnkiDroidApp.TAG, "IOException = " + e1.getMessage());
+//        }
+//    }
 
 
     /*
@@ -911,7 +900,7 @@ public class Utils {
     public static Date genToday(double utcOffset) {
         // The result is not adjusted for timezone anymore, following libanki model
         // Timezone adjustment happens explicitly in Deck.updateCutoff(), but not in Deck.checkDailyStats()
-        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd", ENGLISH_LOCALE);
         df.setTimeZone(TimeZone.getTimeZone("GMT"));
         Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("GMT"));
         cal.setTimeInMillis(System.currentTimeMillis() - (long) utcOffset * 1000l);
@@ -920,13 +909,13 @@ public class Utils {
     }
 
 
-    public static void printDate(String name, double date) {
-    	SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
-    	df.setTimeZone(TimeZone.getTimeZone("GMT"));
-    	Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("GMT"));
-    	cal.setTimeInMillis((long)date * 1000);
-    	Log.d(AnkiDroidApp.TAG, "Value of " + name + ": " + cal.getTime().toGMTString());
-	}
+//    public static void printDate(String name, double date) {
+//    	SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH-mm-ss");
+//    	df.setTimeZone(TimeZone.getTimeZone("GMT"));
+//    	Calendar cal = new GregorianCalendar(TimeZone.getTimeZone("GMT"));
+//    	cal.setTimeInMillis((long)date * 1000);
+//    	Log.d(AnkiDroidApp.TAG, "Value of " + name + ": " + cal.getTime().toGMTString());
+//	}
 
 
     public static String doubleToTime(double value) {
@@ -943,15 +932,15 @@ public class Utils {
     }
 
 
-    /**
-     * Returns the proleptic Gregorian ordinal of the date, where January 1 of year 1 has ordinal 1.
-     * @param date Date to convert to ordinal, since 01/01/01
-     * @return The ordinal representing the date
-     */
-    public static int dateToOrdinal(Date date) {
-        // BigDate.toOrdinal returns the ordinal since 1970, so we add up the days from 01/01/01 to 1970
-        return BigDate.toOrdinal(date.getYear() + 1900, date.getMonth() + 1, date.getDate()) + DAYS_BEFORE_1970;
-    }
+//    /**
+//     * Returns the proleptic Gregorian ordinal of the date, where January 1 of year 1 has ordinal 1.
+//     * @param date Date to convert to ordinal, since 01/01/01
+//     * @return The ordinal representing the date
+//     */
+//    public static int dateToOrdinal(Date date) {
+//        // BigDate.toOrdinal returns the ordinal since 1970, so we add up the days from 01/01/01 to 1970
+//        return BigDate.toOrdinal(date.getYear() + 1900, date.getMonth() + 1, date.getDate()) + DAYS_BEFORE_1970;
+//    }
 
 
     /**

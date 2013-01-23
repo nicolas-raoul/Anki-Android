@@ -18,13 +18,10 @@
 package com.ichi2.libanki;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -56,7 +53,8 @@ public class Tags {
     public void load(String json) {
         try {
             JSONObject tags = new JSONObject(json);
-            Iterator i = tags.keys();
+            @SuppressWarnings("unchecked")
+			Iterator<String> i = (Iterator<String>) tags.keys();
             while (i.hasNext()) {
                 String t = (String) i.next();
                 mTags.put(t, tags.getInt(t));
@@ -127,11 +125,7 @@ public class Tags {
     /** Add any missing tags from notes to the tags list. */
     public void registerNotes(long[] nids) {
         // when called without an argument, the old list is cleared first.
-        String lim;
-        if (nids != null) {
-            lim = " WHERE id IN " + Utils.ids2str(nids);
-        } else {
-            lim = "";
+        if (nids == null) {
             mTags.clear();
             mChanged = true;
         }

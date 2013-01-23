@@ -51,7 +51,6 @@ public class Card implements Cloneable {
     private long mNid;
     private long mDid;
     private int mOrd;
-    private long mCrt = Utils.intNow();
     private long mMod;
     private int mType = 0;
     private int mQueue = 0;
@@ -105,7 +104,6 @@ public class Card implements Cloneable {
             // to flush, set nid, ord, and due
             mId = Utils.timestampID(mCol.getDb(), "cards");
             mDid = 1;
-            mCrt = Utils.intNow();
             mType = 0;
             mQueue = 0;
             mIvl = 0;

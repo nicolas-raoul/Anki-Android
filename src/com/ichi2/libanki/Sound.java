@@ -20,6 +20,7 @@ import java.io.File;
 import java.net.URI;
 import java.util.HashMap;
 
+import android.annotation.SuppressLint;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
@@ -51,7 +52,8 @@ public class Sound {
     /**
      * Stores sounds for the current card, key is for question/answer
      */
-    private static HashMap<Integer, ArrayList<String>> sSoundPaths = new HashMap<Integer, ArrayList<String>>();
+    @SuppressLint("UseSparseArrays")
+	private static HashMap<Integer, ArrayList<String>> sSoundPaths = new HashMap<Integer, ArrayList<String>>();
 
 
     /* Prevent class from being instantiated */
@@ -102,6 +104,7 @@ public class Sound {
             contentLeft = contentLeft.substring(markerStart + soundMarker.length());
             Log.i(AnkiDroidApp.TAG, "Content left = " + contentLeft);
         }
+        if (!soundAvailable) {
         // TODO: readd tts
 //        if (!soundAvailable && ttsEnabled && !ReadText.getLanguage(qa).equals(ReadText.NO_TTS)) {
 //            stringBuilder.append(content.substring(0, content.length() - 9));
@@ -112,7 +115,7 @@ public class Sound {
 //                            + "\"><span style=\"padding:5px;display:inline-block;vertical-align:middle\"><img src=\"file:///android_asset/media_playback_start2.png\" /></span></a>");
 //            contentLeft = "</p>";
 //        }
-
+        }
         stringBuilder.append(contentLeft);
 
         return stringBuilder.toString();

@@ -18,6 +18,40 @@
 
 package com.ichi2.async;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileFilter;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.TreeSet;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+
+import org.apache.commons.httpclient.contrib.ssl.EasyX509TrustManager;
+import org.apache.http.HttpResponse;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import android.app.Application;
 import android.content.Context;
 import android.database.Cursor;
@@ -35,51 +69,12 @@ import com.ichi2.libanki.Collection;
 import com.ichi2.libanki.Decks;
 import com.ichi2.libanki.Sched;
 import com.ichi2.libanki.Utils;
-import com.ichi2.libanki.sync.FullSyncer;
 import com.ichi2.libanki.sync.BasicHttpSyncer;
+import com.ichi2.libanki.sync.FullSyncer;
 import com.ichi2.libanki.sync.MediaSyncer;
 import com.ichi2.libanki.sync.RemoteMediaServer;
 import com.ichi2.libanki.sync.RemoteServer;
 import com.ichi2.libanki.sync.Syncer;
-
-import org.apache.commons.httpclient.contrib.ssl.EasySSLSocketFactory;
-import org.apache.commons.httpclient.contrib.ssl.EasyX509TrustManager;
-import org.apache.http.HttpResponse;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileFilter;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
-import java.lang.OutOfMemoryError;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.security.KeyManagementException;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.TreeSet;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public class Connection extends AsyncTask<Connection.Payload, Object, Connection.Payload> {
 
@@ -677,9 +672,9 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
                     counts[2] += (Integer) deck[4];
                 }
             }
-            Object[] dc = col.getSched().deckCounts();
-            data.result = dc[0];
-            data.data = new Object[] { conflictResolution, col, dc[1], dc[2], mediaError };
+            Sched.DeckCounts dc = col.getSched().getDeckCounts();
+            data.result = dc.getDecksNet();
+            data.data = new Object[] { conflictResolution, col, dc.eta, dc.cardCount, mediaError };
             return data;
         }
     }
@@ -696,7 +691,8 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
     }
 
 
-    private Payload doInBackgroundSendFeedback(Payload data) {
+    @SuppressWarnings("unchecked")
+	private Payload doInBackgroundSendFeedback(Payload data) {
         Log.i(AnkiDroidApp.TAG, "doInBackgroundSendFeedback");
         String feedbackUrl = (String) data.data[0];
         String errorUrl = (String) data.data[1];
@@ -745,7 +741,6 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
         return data;
     }
 
-
     /**
      * Downloads any missing media files according to the mediaURL deckvar.
      * 
@@ -753,6 +748,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
      * @return The return type contains data.resultType and an array of Integer in data.data. data.data[0] is the number
      *         of total missing media, data.data[1] is the number of downloaded ones.
      */
+    // TODO: this method is broken.  see FIXMEs
     private Payload doInBackgroundDownloadMissingMedia(Payload data) {
         Log.i(AnkiDroidApp.TAG, "DownloadMissingMedia");
         HashMap<String, String> missingPaths = new HashMap<String, String>();
@@ -771,6 +767,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
         String urlbase = "";// deck.getVar("mediaURL");
         if (urlbase.equals("")) {
             data.success = true;
+            // FIXME: the method returns here every time.
             return data;
         }
 
@@ -781,6 +778,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
 
         Cursor cursor = null;
         try {
+        	// FIXME: assign cursor to non-null variable
             cursor = null;// deck.getDB().getDatabase().rawQuery("SELECT filename, originalPath FROM media", null);
             String path = null;
             String f = null;
@@ -801,17 +799,17 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
         }
 
         totalMissing = missingPaths.size();
-        data.data[0] = new Integer(totalMissing);
+        data.data[0] = Integer.valueOf(totalMissing);
         if (totalMissing == 0) {
             data.success = true;
             return data;
         }
-        publishProgress(Boolean.FALSE, new Integer(totalMissing), new Integer(0), syncName);
+        publishProgress(Boolean.FALSE, Integer.valueOf(totalMissing), Integer.valueOf(0), syncName);
 
         URL url = null;
         HttpURLConnection connection = null;
         String path = null;
-        String sum = null;
+        //String sum = null;
         int readbytes = 0;
         byte[] buf = new byte[4096];
         for (String file : missingPaths.keySet()) {
@@ -832,17 +830,18 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
                     }
                     fos.close();
 
-                    // Verify with checksum
-                    sum = missingSums.get(file);
-                    if (true) {// sum.equals("") || sum.equals(Utils.fileChecksum(path))) {
-                        grabbed++;
-                    } else {
-                        // Download corrupted, delete file
-                        Log.i(AnkiDroidApp.TAG, "Downloaded media file " + path + " failed checksum.");
-                        File f = new File(path);
-                        f.delete();
-                        missing++;
-                    }
+                    // TODO: Verify with checksum
+//                    sum = missingSums.get(file);
+//                    if (true) {// sum.equals("") || sum.equals(Utils.fileChecksum(path))) {
+//                        grabbed++;
+//                    } else {
+//                        // Download corrupted, delete file
+//                        Log.i(AnkiDroidApp.TAG, "Downloaded media file " + path + " failed checksum.");
+//                        File f = new File(path);
+//                        f.delete();
+//                        missing++;
+//                    }
+                    grabbed++;
                 } else {
                     Log.e(AnkiDroidApp.TAG, "Connection error (" + connection.getResponseCode()
                             + ") while retrieving media file " + urlbase + file);
@@ -886,11 +885,11 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
                     connection.disconnect();
                 }
             }
-            publishProgress(Boolean.TRUE, new Integer(totalMissing), new Integer(grabbed + missing), syncName);
+            publishProgress(Boolean.TRUE, Integer.valueOf(totalMissing), Integer.valueOf(grabbed + missing), syncName);
         }
 
-        data.data[1] = new Integer(grabbed);
-        data.data[2] = new Integer(missing);
+        data.data[1] = Integer.valueOf(grabbed);
+        data.data[2] = Integer.valueOf(missing);
         data.success = true;
         return data;
     }

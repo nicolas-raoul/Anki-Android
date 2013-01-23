@@ -17,8 +17,6 @@
 
 package com.ichi2.libanki;
 
-import android.text.Html;
-
 import com.ichi2.libanki.hooks.Hook;
 import com.ichi2.libanki.hooks.Hooks;
 

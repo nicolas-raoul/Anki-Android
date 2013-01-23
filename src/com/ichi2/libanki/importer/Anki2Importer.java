@@ -29,7 +29,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.database.Cursor;
+import android.os.Build;
 import android.util.Log;
 
 import com.ichi2.anki.AnkiDatabaseManager;
@@ -142,11 +145,6 @@ public class Anki2Importer {
 
 	private void _prepareTS() {
 		mTs = Utils.maxID(mDst.getDb());
-	}
-
-	private long ts() {
-		mTs++;
-		return mTs;
 	}
 
 	/** Notes */
@@ -361,6 +359,7 @@ public class Anki2Importer {
 
 	/** Cards */
 
+	@SuppressLint("UseSparseArrays")
 	private int _importCards() {
 		// build map of (guid, ord) -> cid and used id cache
 		mCards = new HashMap<String, HashMap<Integer, Long>>();
@@ -410,7 +409,7 @@ public class Anki2Importer {
             	if (!mNotes.containsKey(guid)) {
             		continue;
             	}
-            	Object[] dnid = mNotes.get(guid);
+            	//Object[] dnid = mNotes.get(guid);
             	// does the card already exist in the dst col?
             	int ord = (Integer) card[5];
             	if (mCards.containsKey(guid) && mCards.get(guid).containsKey(ord)) {
@@ -536,7 +535,8 @@ public class Anki2Importer {
      * Return the contents of the given input stream, limited to Anki2Importer.MEDIAPICKLIMIT bytes
      * This is only used for comparison of media files with the limited resources of mobile devices
      */
-    byte[] _mediaPick(InputStream is) {
+	@TargetApi(Build.VERSION_CODES.GINGERBREAD) // Arrays.copyOf
+	byte[] _mediaPick(InputStream is) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buf = new byte[MEDIAPICKLIMIT];

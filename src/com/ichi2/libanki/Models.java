@@ -19,14 +19,13 @@
 
 package com.ichi2.libanki;
 
+import android.annotation.SuppressLint;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.util.Log;
 
 import com.ichi2.anki.AnkiDroidApp;
 import com.ichi2.anki.Pair;
-import com.ichi2.themes.HtmlColors;
-import com.mindprod.common11.StringTools;
 import com.samskivert.mustache.Mustache;
 import com.samskivert.mustache.Template;
 
@@ -83,12 +82,12 @@ public class Models {
     // BEGIN SQL table entries
     private int mId;
     private String mName = "";
-    private long mCrt = Utils.intNow();
-    private long mMod = Utils.intNow();
-    private JSONObject mConf;
-    private String mCss = "";
-    private JSONArray mFields;
-    private JSONArray mTemplates;
+//    private long mCrt = Utils.intNow();
+//    private long mMod = Utils.intNow();
+//    private JSONObject mConf;
+//    private String mCss = "";
+//    private JSONArray mFields;
+//    private JSONArray mTemplates;
     // BEGIN SQL table entries
 
     // private Decks mDeck;
@@ -797,7 +796,8 @@ public class Models {
     }
 
 
-    public void moveTemplate(JSONObject m, JSONObject template, int idx) {
+    @SuppressLint("UseSparseArrays")
+	public void moveTemplate(JSONObject m, JSONObject template, int idx) {
         try {
             JSONArray ja = m.getJSONArray("tmpls");
             int oldidx = -1;
@@ -840,7 +840,7 @@ public class Models {
 
 
     private void _syncTemplates(JSONObject m) {
-        ArrayList<Long> rem = mCol.genCards(Utils.arrayList2array(nids(m)));
+        //ArrayList<Long> rem = mCol.genCards(Utils.arrayList2array(nids(m)));
     }
 
 
@@ -991,7 +991,8 @@ public class Models {
         mCol.genCards(nids);
     }
     
-    private void _changeNotes(long[] nids, JSONObject newModel, Map<Integer, Integer> map) {
+    @SuppressLint("UseSparseArrays")
+	private void _changeNotes(long[] nids, JSONObject newModel, Map<Integer, Integer> map) {
         List<Object[]> d = new ArrayList<Object[]>();
         int nfields;
         long mid;
@@ -1149,7 +1150,7 @@ public class Models {
         try {
             ArrayList<String> a = new ArrayList<String>();
             ArrayList<String> b = new ArrayList<String>();
-            for (String f : flds) {
+            for (int i = 0; i < flds.size(); i++) {
                 a.add("ankiflag");
                 b.add("");
             }
@@ -1418,7 +1419,8 @@ public class Models {
     }
 
 
-    public HashMap<Long, HashMap<Integer, String>> getTemplateNames() {
+    @SuppressLint("UseSparseArrays")
+	public HashMap<Long, HashMap<Integer, String>> getTemplateNames() {
         HashMap<Long, HashMap<Integer, String>> result = new HashMap<Long, HashMap<Integer, String>>();
         for (JSONObject m : mModels.values()) {
             JSONArray templates;
