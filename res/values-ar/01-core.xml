@@ -28,6 +28,7 @@
   <string name="ok">موافق</string>
   <string name="studyoptions_deck_name">اسم مجموعة البطاقات</string>
   <string name="studyoptions_due_today">المستحق اليوم:</string>
+  <string name="studyoptions_avgdailyload">Daily load:</string>
   <string name="studyoptions_new_total">مجموع البطاقات الجديدة:</string>
   <string name="studyoptions_total_cards">مجموع البطاقات:</string>
   <string name="studyoptions_eta">الوقت المقدر (دقيقة):</string>

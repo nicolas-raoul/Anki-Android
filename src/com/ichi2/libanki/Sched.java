@@ -2811,4 +2811,29 @@ public class Sched {
         }
     }
 
+    /**
+     * Compute the average cards per day, which is the sum on the inverse of the frequency of the cards.
+     * For ex: a card with freq=4 day will worth 0.25 card/day
+     * @return average cards per day
+     */
+	public double avgDailyLoad() {
+        Cursor cur = null;
+        try {
+            cur = mCol
+                    .getDb()
+                    .getDatabase()
+                    .rawQuery(
+                            "select round(sum(1./ivl),2) from cards where did IN "
+                    		+ Utils.ids2str(mCol.getDecks().active()) + " and ivl>0 and queue!=-1", null);
+            if (!cur.moveToFirst()) {
+                return -1;
+            }
+            return cur.getDouble(0);
+        } finally {
+            if (cur != null && !cur.isClosed()) {
+                cur.close();
+            }
+        }
+	}
+
 }

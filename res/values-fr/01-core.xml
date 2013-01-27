@@ -28,6 +28,7 @@
   <string name="ok">OK</string>
   <string name="studyoptions_deck_name">Nom du paquet</string>
   <string name="studyoptions_due_today">Prévues aujourd’hui :</string>
+  <string name="studyoptions_avgdailyload">Charge journalière :</string>
   <string name="studyoptions_new_total">Cartes inédites :</string>
   <string name="studyoptions_total_cards">Cartes :</string>
   <string name="studyoptions_eta">Durée estimée (mn) :</string>

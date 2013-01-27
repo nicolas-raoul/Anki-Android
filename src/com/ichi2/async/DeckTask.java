@@ -736,14 +736,15 @@ public class DeckTask extends
 			int totalCount = sched.cardCount();
 			double progressMature = ((double) sched.matureCount()) / ((double) totalCount);
 			double progressAll = 1 - (((double) (totalNewCount + counts[1])) / ((double) totalCount));
-			double[][] serieslist = null;
+			double[][] serieslist = null;			
 			// only calculate stats if necessary
 			if ((Boolean) obj[1]) {
 				serieslist = Stats.getSmallDueStats(sched.getCol());
 			}
+			double forecast = sched.avgDailyLoad();
 			return new TaskData(new Object[] { counts[0], counts[1], counts[2],
 					totalNewCount, totalCount, progressMature, progressAll,
-					sched.eta(counts), serieslist });			
+					sched.eta(counts), serieslist, forecast });			
 		} catch (RuntimeException e) {
 			Log.e(AnkiDroidApp.TAG, "doInBackgroundUpdateValuesFromDeck - an error occurred: " + e);
 			return null;

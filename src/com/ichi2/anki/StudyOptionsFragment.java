@@ -142,6 +142,7 @@ public class StudyOptionsFragment extends Fragment {
     private TextView mTextTotal;
     private TextView mTextETA;
     private LinearLayout mSmallChart;
+    private TextView mTextAvgDailyLoad;
     private LinearLayout mDeckCounts;
     private LinearLayout mDeckChart;
     private ImageButton mAddNote;
@@ -443,6 +444,7 @@ public class StudyOptionsFragment extends Fragment {
         CharSequence lrnToday = mTextTodayLrn.getText();
         CharSequence revToday = mTextTodayRev.getText();
         CharSequence newTotal = mTextNewTotal.getText();
+        CharSequence avgDailyLoad = mTextAvgDailyLoad.getText();
         CharSequence total = mTextTotal.getText();
         CharSequence eta = mTextETA.getText();
 //        long timelimit = mCol.getTimeLimit() / 60;
@@ -460,6 +462,7 @@ public class StudyOptionsFragment extends Fragment {
         mTextTodayNew.setText(newToday);
         mTextTodayLrn.setText(lrnToday);
         mTextTodayRev.setText(revToday);
+        mTextAvgDailyLoad.setText(avgDailyLoad);
         mTextNewTotal.setText(newTotal);
         mTextTotal.setText(total);
         mTextETA.setText(eta);
@@ -644,6 +647,7 @@ public class StudyOptionsFragment extends Fragment {
         mTextTotal = (TextView) mStudyOptionsView.findViewById(R.id.studyoptions_total);
         mTextETA = (TextView) mStudyOptionsView.findViewById(R.id.studyoptions_eta);
         mSmallChart = (LinearLayout) mStudyOptionsView.findViewById(R.id.studyoptions_mall_chart);
+        mTextAvgDailyLoad = (TextView) mStudyOptionsView.findViewById(R.id.studyoptions_forecast);
 
         mGlobalMatBar.setVisibility(View.INVISIBLE);
         mGlobalBar.setVisibility(View.INVISIBLE);
@@ -1231,6 +1235,7 @@ public class StudyOptionsFragment extends Fragment {
                 mProgressAll = (Double) obj[6];
                 int eta = (Integer) obj[7];
                 double[][] serieslist = (double[][]) obj[8];
+                double forecast = (Double) obj[9];
 
                 updateStatisticBars();
                 updateChart(serieslist);
@@ -1264,6 +1269,7 @@ public class StudyOptionsFragment extends Fragment {
                 } else {
                     mTextETA.setText("-");
                 }
+               mTextAvgDailyLoad.setText(String.valueOf(forecast));
 
                 if (mDeckCounts.getVisibility() == View.INVISIBLE) {
                     mDeckCounts.setVisibility(View.VISIBLE);
