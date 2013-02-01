@@ -23,5 +23,5 @@
 	<string-array name="new_version_features">
 		<item>bug fix: importing apkgs</item>
 	        <item>bug fix: media syncing</item>
-				</string-array>
+	</string-array>
 </resources>
