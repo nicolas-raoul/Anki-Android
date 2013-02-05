@@ -171,17 +171,23 @@ public class Tags {
      */
 
     /**
-     * Add/remove tags in bulk
+     * Adds tags in bulk.
      * 
      * @param ids The cards to tag.
-     * @param tags List of tags to add/remove. They are space-separated.
-     * @param add True/False to add/remove.
+     * @param tags List of tags to add. They are space-separated.
      */
     public void bulkAdd(List<Long> ids, String tags) {
         bulkAdd(ids, tags, true);
     }
 
 
+    /**
+     * Add/remove tags in bulk
+     *
+     * @param ids The cards to tag.
+     * @param tags List of tags to add/remove. They are space-separated.
+     * @param add True/False to add/remove.
+     */
     public void bulkAdd(List<Long> ids, String tags, boolean add) {
         List<String> newTags = split(tags);
         if (newTags == null || newTags.isEmpty()) {

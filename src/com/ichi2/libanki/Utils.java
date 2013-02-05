@@ -76,6 +76,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -843,15 +844,12 @@ public class Utils {
     private static void printJSONObject(JSONObject jsonObject, String indentation, BufferedWriter buff) {
         try {
             @SuppressWarnings("unchecked") Iterator<String> keys = (Iterator<String>) jsonObject.keys();
-            TreeSet<String> orderedKeysSet = new TreeSet<String>();
+            Set<String> orderedKeysSet = new TreeSet<String>();
             while (keys.hasNext()) {
                 orderedKeysSet.add(keys.next());
             }
 
-            Iterator<String> orderedKeys = orderedKeysSet.iterator();
-            while (orderedKeys.hasNext()) {
-                String key = orderedKeys.next();
-
+            for (String key : orderedKeysSet) {
                 try {
                     Object value = jsonObject.get(key);
                     if (value instanceof JSONObject) {
@@ -982,7 +980,7 @@ public class Utils {
         final Intent intent = new Intent(action);
         intent.setComponent(componentName);
         List<ResolveInfo> list = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
-        return list.size() > 0;
+        return ! list.isEmpty();
     }
 
     /**
