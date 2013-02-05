@@ -10,7 +10,7 @@ import android.text.SpannableStringBuilder;
 import android.text.style.CharacterStyle;
 import android.text.style.ForegroundColorSpan;
 
-/** Implementation of {@link Compat} for SDK level 9 */
+/** Implementation of {@link Compat} for SDK level 11 */
 @TargetApi(11)
 public class CompatV11 extends CompatV9 implements Compat {
     @Override

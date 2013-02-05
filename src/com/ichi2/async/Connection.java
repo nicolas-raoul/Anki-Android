@@ -802,12 +802,12 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
         }
 
         totalMissing = missingPaths.size();
-        data.data[0] = new Integer(totalMissing);
+        data.data[0] = Integer.valueOf(totalMissing);
         if (totalMissing == 0) {
             data.success = true;
             return data;
         }
-        publishProgress(Boolean.FALSE, new Integer(totalMissing), new Integer(0), syncName);
+        publishProgress(Boolean.FALSE, Integer.valueOf(totalMissing), Integer.valueOf(0), syncName);
 
         URL url = null;
         HttpURLConnection connection = null;

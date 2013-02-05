@@ -863,7 +863,7 @@ public class Reviewer extends AnkiControllableActivity {
             } else {
                 mTypeWarning = "Type answer: unknown field " + fld;
             }
-        } else if (mTypeCorrect.equals("")) {
+        } else if (mTypeCorrect.isEmpty()) {
             mTypeCorrect = null;
         } else {
             mTypeWarning = null;
@@ -2265,7 +2265,7 @@ public class Reviewer extends AnkiControllableActivity {
     private Runnable mShowQuestionTask = new Runnable() {
         public void run() {
             // Assume hitting the "Again" button when auto next question
-            if (mEase1Layout.isEnabled() == true && mEase1Layout.getVisibility() == View.VISIBLE) {
+            if (mEase1Layout.isEnabled() && mEase1Layout.getVisibility() == View.VISIBLE) {
                 mEase1Layout.performClick();
             }
         }
@@ -2273,7 +2273,7 @@ public class Reviewer extends AnkiControllableActivity {
 
     private Runnable mShowAnswerTask = new Runnable() {
         public void run() {
-            if (mFlipCardLayout.isEnabled() == true && mFlipCardLayout.getVisibility() == View.VISIBLE) {
+            if (mFlipCardLayout.isEnabled() && mFlipCardLayout.getVisibility() == View.VISIBLE) {
                 mFlipCardLayout.performClick();
             }
         }
@@ -2408,7 +2408,7 @@ public class Reviewer extends AnkiControllableActivity {
                     // Obtain the diff and send it to updateCard
                     DiffEngine diff = new DiffEngine();
 
-                    StringBuffer span = new StringBuffer();
+                    StringBuilder span = new StringBuilder();
                     span.append("<span style=\"font-family: '").append(mTypeFont)
                     .append("'; font-size: ").append(mTypeSize).append("px\">");
                     span.append(diff.diff_prettyHtml(diff.diff_main(userAnswer, correctAnswer), mNightMode));
@@ -2978,8 +2978,8 @@ public class Reviewer extends AnkiControllableActivity {
             mCustomFonts.put(f.getName(), f);
         }
         for (String s : new String[] { "nook" }) {
-            if (android.os.Build.DEVICE.toLowerCase().indexOf(s) != -1
-                    || android.os.Build.MODEL.toLowerCase().indexOf(s) != -1) {
+            if (android.os.Build.DEVICE.toLowerCase().contains(s)
+                    || android.os.Build.MODEL.toLowerCase().contains(s)) {
                 return true;
             }
         }
@@ -3087,7 +3087,7 @@ public class Reviewer extends AnkiControllableActivity {
     /**
      * Provides a hook for calling "alert" from javascript. Useful for debugging your javascript.
      */
-    public final class AnkiDroidWebChromeClient extends WebChromeClient {
+    public static final class AnkiDroidWebChromeClient extends WebChromeClient {
         @Override
         public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
             Log.i(AnkiDroidApp.TAG, message);
@@ -3329,6 +3329,7 @@ public class Reviewer extends AnkiControllableActivity {
 
     private TagHandler mSimpleInterfaceTagHandler = new TagHandler () {
 
+        @Override
         public void handleTag(boolean opening, String tag, Editable output,
                 XMLReader xmlReader) {
 //            if(tag.equalsIgnoreCase("div")) {
