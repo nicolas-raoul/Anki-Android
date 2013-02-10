@@ -125,7 +125,12 @@
         <activity
             android:name="com.ichi2.anki.MyAccount"
             android:configChanges="keyboardHidden|orientation|locale"
-            android:label="@string/menu_my_account" />
+            android:label="@string/menu_my_account" >
+            <intent-filter>
+                <action android:name="com.ichi2.anki.MyAccount"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
         <activity
             android:name="com.ichi2.anki.Preferences"
             android:configChanges="keyboardHidden|orientation|locale"

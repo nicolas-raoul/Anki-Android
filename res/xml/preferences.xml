@@ -137,6 +137,9 @@
                 android:key="syncFetchesMedia"
                 android:summary="@string/sync_fetch_missing_media_summ"
                 android:title="@string/sync_fetch_missing_media" />
+          <Preference android:title="@string/log_in">
+            <intent android:action="com.ichi2.anki.MyAccount"/>
+         	</Preference>
 	</PreferenceCategory>
       </PreferenceScreen>
     <PreferenceScreen android:title="@string/pref_cat_qadisplay" >
