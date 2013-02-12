@@ -854,12 +854,12 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
         }
 
         totalMissing = missingPaths.size();
-        data.data[0] = new Integer(totalMissing);
+        data.data[0] = Integer.valueOf(totalMissing);
         if (totalMissing == 0) {
             data.success = true;
             return data;
         }
-        publishProgress(Boolean.FALSE, new Integer(totalMissing), new Integer(0), syncName);
+        publishProgress(Boolean.FALSE, Integer.valueOf(totalMissing), Integer.valueOf(0), syncName);
 
         URL url = null;
         HttpURLConnection connection = null;
@@ -939,11 +939,11 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
                     connection.disconnect();
                 }
             }
-            publishProgress(Boolean.TRUE, new Integer(totalMissing), new Integer(grabbed + missing), syncName);
+            publishProgress(Boolean.TRUE, Integer.valueOf(totalMissing), Integer.valueOf(grabbed + missing), syncName);
         }
 
-        data.data[1] = new Integer(grabbed);
-        data.data[2] = new Integer(missing);
+        data.data[1] = Integer.valueOf(grabbed);
+        data.data[2] = Integer.valueOf(missing);
         data.success = true;
         return data;
     }

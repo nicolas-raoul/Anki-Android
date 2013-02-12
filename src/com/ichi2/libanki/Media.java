@@ -374,7 +374,7 @@ public class Media {
         try {
             for (int i = 0; i < fnames.length(); ++i) {
                 String f = fnames.optString(i);
-                if (f == "") {
+                if (f.length() == 0) {
                     continue;
                 }
                 File file = new File(getDir(), f);
@@ -727,9 +727,9 @@ public class Media {
         }
 
         // look for any entries in the cache that no longer exist on disk
-        for (String fname : used.keySet()) {
-            if (!used.get(fname)) {
-                removed.add(fname);
+        for (Map.Entry<String, Boolean> pair : used.entrySet()) {
+            if (!pair.getValue()) {
+                removed.add(pair.getKey());
             }
         }
         return new Pair<List<String>, List<String>>(added, removed);

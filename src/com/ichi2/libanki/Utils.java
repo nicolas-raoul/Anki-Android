@@ -65,14 +65,13 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.Enumeration;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
+import java.util.Set;
 import java.util.TimeZone;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
@@ -85,10 +84,10 @@ import java.util.zip.ZipFile;
  * TODO comments
  */
 public class Utils {
-    enum SqlCommandType { SQL_INS, SQL_UPD, SQL_DEL };
+    enum SqlCommandType { SQL_INS, SQL_UPD, SQL_DEL }
 
     // Used to format doubles with English's decimal separator system
-    public static final Locale ENGLISH_LOCALE = new Locale("en_US");
+    public static final Locale ENGLISH_LOCALE = Locale.US;
 
     public static final int CHUNK_SIZE = 32768;
 
@@ -146,7 +145,6 @@ public class Utils {
     
     /**
      * Return a string representing a time span (eg '2 days').
-     * @param inFormat: if true, return eg 'in 2 days'
      */
     public static String fmtTimeSpan(int time) {
         return fmtTimeSpan(time, 0, false, false);
@@ -232,7 +230,7 @@ public class Utils {
     	}
     }
 
-    /**
+    /*
      * Locale
      * ***********************************************************************************************
      */
@@ -268,14 +266,14 @@ public class Utils {
     	return mCurrentNumberFormat.format(value);
     }
 
-    /**
+    /*
      * HTML
      * ***********************************************************************************************
      */
 
     /**
      * Strips a text from <style>...</style>, <script>...</script> and <_any_tag_> HTML tags.
-     * @param The HTML text to be cleaned.
+     * @param s The HTML text to be cleaned.
      * @return The text without the aforementioned tags.
      */
     public static String stripHTML(String s) {
@@ -873,15 +871,12 @@ public class Utils {
     private static void printJSONObject(JSONObject jsonObject, String indentation, BufferedWriter buff) {
         try {
             @SuppressWarnings("unchecked") Iterator<String> keys = (Iterator<String>) jsonObject.keys();
-            TreeSet<String> orderedKeysSet = new TreeSet<String>();
+            Set<String> orderedKeysSet = new TreeSet<String>();
             while (keys.hasNext()) {
                 orderedKeysSet.add(keys.next());
             }
 
-            Iterator<String> orderedKeys = orderedKeysSet.iterator();
-            while (orderedKeys.hasNext()) {
-                String key = orderedKeys.next();
-
+            for (String key : orderedKeysSet) {
                 try {
                     Object value = jsonObject.get(key);
                     if (value instanceof JSONObject) {
@@ -1012,7 +1007,7 @@ public class Utils {
         final Intent intent = new Intent(action);
         intent.setComponent(componentName);
         List<ResolveInfo> list = packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
-        return list.size() > 0;
+        return ! list.isEmpty();
     }
 
     /**
@@ -1040,20 +1035,16 @@ public class Utils {
      */
     public static long[] toPrimitive(Long[] array) {
         long[] results = new long[array.length];
-        if (array != null) {
-            for (int i = 0; i < array.length; i++) {
-                results[i] = array[i].longValue();
-            }
+        for (int i = 0; i < array.length; i++) {
+            results[i] = array[i];
         }
         return results;
     }
-    public static long[] toPrimitive(Collection<Long> array) {
-        long[] results = new long[array.size()];
-        if (array != null) {
-            int i = 0;
-            for (Long item : array) {
-                results[i++] = item.longValue();
-            }
+    public static long[] toPrimitive(java.util.Collection<Long> collection) {
+        long[] results = new long[collection.size()];
+        int i = 0;
+        for (Long item : collection) {
+            results[i++] = item;
         }
         return results;
     }
@@ -1129,14 +1120,16 @@ public class Utils {
                 fonts.add(font);
             }
         }
-        for (int i = 0; i < ankiDroidFonts.length; i++) {
-            AnkiFont font = AnkiFont.createAnkiFont(context, ankiDroidFonts[i], true);
-        	if (font != null) {
-                fonts.add(font);
+        if (ankiDroidFonts != null) {
+            for (String ankiDroidFont : ankiDroidFonts) {
+                AnkiFont font = AnkiFont.createAnkiFont(context, ankiDroidFont, true);
+                if (font != null) {
+                    fonts.add(font);
+                }
             }
         }
 
-       	return fonts;
+        return fonts;
     }
 
     
@@ -1150,10 +1143,7 @@ public class Utils {
         	deckList = dir.listFiles(new FileFilter(){
                 @Override
                 public boolean accept(File pathname) {
-                    if (pathname.isFile() && pathname.getName().endsWith(".apkg")) {
-                        return true;
-                    }
-                    return false;
+                    return pathname.isFile() && pathname.getName().endsWith(".apkg");
                 }
             });
         	deckCount = deckList.length;

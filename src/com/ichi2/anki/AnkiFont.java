@@ -51,29 +51,30 @@ public class AnkiFont {
             // unable to create typeface
             return null;
         }
-        if (tf.isBold() || name.toLowerCase().contains("bold")) {
+        final String nameLowerCase = name.toLowerCase();
+        if (tf.isBold() || nameLowerCase.contains("bold")) {
             attributes.add("font-weight: bolder;");
             family = family.replaceFirst("(?i)-?Bold", "");
-        } else if (name.toLowerCase().contains("light")) {
+        } else if (nameLowerCase.contains("light")) {
             attributes.add("font-weight: lighter;");
             family = family.replaceFirst("(?i)-?Light", "");
         } else {
             attributes.add("font-weight: normal;");
         }
-        if (tf.isItalic() || name.toLowerCase().contains("italic")) {
+        if (tf.isItalic() || nameLowerCase.contains("italic")) {
             attributes.add("font-style: italic;");
             family = family.replaceFirst("(?i)-?Italic", "");
-        } else if (name.toLowerCase().contains("oblique")) {
+        } else if (nameLowerCase.contains("oblique")) {
             attributes.add("font-style: oblique;");
             family = family.replaceFirst("(?i)-?Oblique", "");
         } else {
             attributes.add("font-style: normal;");
         }
-        if (name.toLowerCase().contains("condensed") || name.toLowerCase().contains("narrow")) {
+        if (nameLowerCase.contains("condensed") || nameLowerCase.contains("narrow")) {
             attributes.add("font-stretch: condensed;");
             family = family.replaceFirst("(?i)-?Condensed", "");
             family = family.replaceFirst("(?i)-?Narrow(er)?", "");
-        } else if (name.toLowerCase().contains("expanded") || name.toLowerCase().contains("wide")) {
+        } else if (nameLowerCase.contains("expanded") || nameLowerCase.contains("wide")) {
             attributes.add("font-stretch: expanded;");
             family = family.replaceFirst("(?i)-?Expanded", "");
             family = family.replaceFirst("(?i)-?Wide(r)?", "");
