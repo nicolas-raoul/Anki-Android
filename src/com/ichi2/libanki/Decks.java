@@ -81,7 +81,7 @@ public class Decks {
     private boolean mChanged;
 
 
-    /**
+    /*
      * Registry save/load *******************************************************
      * ****************************************
      */
@@ -158,7 +158,7 @@ public class Decks {
     }
 
 
-    /**
+    /*
      * Deck save/load *********************************************************** ************************************
      */
 
@@ -441,7 +441,7 @@ public class Decks {
     }
 
 
-    /**
+    /*
      * Deck configurations ******************************************************
      * *****************************************
      */
@@ -542,7 +542,7 @@ public class Decks {
     // didsforConf
     // restoretodefault
 
-    /**
+    /*
      * Deck utils *************************************************************** ********************************
      */
 
@@ -627,11 +627,11 @@ public class Decks {
     }
 
 
-    /**
+    /*
      * Deck selection *********************************************************** ************************************
      */
 
-    /* The currrently active dids. MAke sure to copy before modifying */
+    /** The currrently active dids. MAke sure to copy before modifying */
     public LinkedList<Long> active() {
         try {
             String actv = mCol.getConf().getString("activeDecks");
@@ -647,7 +647,7 @@ public class Decks {
     }
 
 
-    /* The currently selected did. */
+    /** The currently selected did. */
     public long selected() {
         try {
             return mCol.getConf().getLong("curDeck");
@@ -662,7 +662,7 @@ public class Decks {
     }
 
 
-    /* Select a new branch. */
+    /** Select a new branch. */
     public void select(long did) {
         try {
             String name = mDecks.get(did).getString("name");
@@ -683,7 +683,7 @@ public class Decks {
     }
 
 
-    /* all children of did as (name, id) */
+    /** all children of did as (name, id) */
     public TreeMap<String, Long> children(long did) {
         String name;
         try {
@@ -701,7 +701,7 @@ public class Decks {
     }
 
 
-    /* all parents of did */
+    /** all parents of did */
     public ArrayList<JSONObject> parents(long did) {
         // get parent and grandparent names
         ArrayList<JSONObject> list = new ArrayList<JSONObject>();
@@ -723,7 +723,7 @@ public class Decks {
     }
 
 
-    /**
+    /*
      * Sync handling ************************************************************ ***********************************
      */
 
@@ -742,11 +742,11 @@ public class Decks {
     }
 
 
-    /**
+    /*
      * Deck utils
      ***************************************************************/
 
-    /* Return a new dynamic deck and set it as the current deck. */
+    /** Return a new dynamic deck and set it as the current deck. */
     public long newDyn(String name) {
         long did = id(name, true, defaultDynamicDeck);
         select(did);

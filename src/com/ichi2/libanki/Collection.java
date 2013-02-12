@@ -1304,8 +1304,8 @@ public class Collection {
                 	if (m.getInt("type") != Sched.MODEL_STD) {
                 		continue;
                 	}
-                	ArrayList<Integer> ords = new ArrayList<Integer>();
                 	JSONArray tmpls = m.getJSONArray("tmpls");
+                	List<Integer> ords = new ArrayList<Integer>(tmpls.length());
                 	for (int t = 0; t < tmpls.length(); t++) {
                 		ords.add(tmpls.getJSONObject(t).getInt("ord"));
                 	}

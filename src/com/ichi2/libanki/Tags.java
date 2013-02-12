@@ -40,7 +40,7 @@ public class Tags {
     private boolean mChanged;
 
 
-    /**
+    /*
      * Registry save/load
      * ***********************************************************************************************
      */
@@ -83,7 +83,7 @@ public class Tags {
     }
 
 
-    /**
+    /*
      * Registering and fetching tags
      * ***********************************************************************************************
      */
@@ -162,23 +162,28 @@ public class Tags {
     }
 
 
-    /**
+    /*
      * Bulk addition/removal from notes
      * ***********************************************************************************************
      */
 
     /**
-     * Add/remove tags in bulk
+     * Adds tags in bulk.
      * 
      * @param ids The cards to tag.
      * @param tags List of tags to add/remove. They are space-separated.
-     * @param add True/False to add/remove.
      */
     public void bulkAdd(List<Long> ids, String tags) {
         bulkAdd(ids, tags, true);
     }
 
-
+    /**
+     * Adds/removes tags in bulk.
+     *
+     * @param ids The cards to tag.
+     * @param tags List of tags to add/remove. They are space-separated.
+     * @param add True/False to add/remove.
+     */
     public void bulkAdd(List<Long> ids, String tags, boolean add) {
         List<String> newTags = split(tags);
         if (newTags == null || newTags.isEmpty()) {
@@ -236,7 +241,7 @@ public class Tags {
     }
 
 
-    /**
+    /*
      * String-based utilities
      * ***********************************************************************************************
      */
