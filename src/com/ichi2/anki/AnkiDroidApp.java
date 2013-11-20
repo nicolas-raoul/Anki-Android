@@ -26,6 +26,7 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Environment;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
@@ -34,8 +35,8 @@ import com.ichi2.async.Connection;
 import com.ichi2.compat.Compat;
 import com.ichi2.compat.CompatV11;
 import com.ichi2.compat.CompatV15;
-import com.ichi2.compat.CompatV5;
 import com.ichi2.compat.CompatV4;
+import com.ichi2.compat.CompatV5;
 import com.ichi2.compat.CompatV9;
 import com.ichi2.libanki.Collection;
 import com.ichi2.libanki.Storage;
@@ -55,6 +56,7 @@ public class AnkiDroidApp extends Application {
     public static final int SDK_VERSION = android.os.Build.VERSION.SDK_INT;
     public static final String LIBANKI_VERSION = "1.2.5";
     public static final String DROPBOX_PUBLIC_DIR = "/dropbox/Public/Anki";
+    public static final String APP_NAMESPACE = "http://schemas.android.com/apk/res/com.ichi2.anki";
 
     public static final int RESULT_TO_HOME = 501;
 
@@ -76,9 +78,6 @@ public class AnkiDroidApp extends Application {
 
     /** Global hooks */
     private Hooks mHooks;
-    
-    /** Application locale */
-    private String mLanguage;
     
     /** Compatibility interface, Used to perform operation in a platform specific way. */
     private Compat mCompat;
@@ -106,7 +105,8 @@ public class AnkiDroidApp extends Application {
     public void onCreate() {
         super.onCreate();
 
-        if (android.os.Build.MODEL.toLowerCase().equals("nook") || android.os.Build.DEVICE.toLowerCase().equals("nook")) {
+        if (android.os.Build.MODEL.toLowerCase(Locale.US).equals("nook")
+                || android.os.Build.DEVICE.toLowerCase(Locale.US).equals("nook")) {
             mCompat = new CompatV4();
         } else if (AnkiDroidApp.SDK_VERSION >= 15) {
             mCompat = new CompatV15();
@@ -131,7 +131,7 @@ public class AnkiDroidApp extends Application {
 
         SharedPreferences preferences = getSharedPrefs(this);
         sInstance.mHooks = new Hooks(preferences);
-        sInstance.mLanguage = mLanguage = preferences.getString("language", "");
+        setLanguage(preferences.getString("language", ""));
         // Assign some default settings if necessary
         if (!preferences.contains("deckPath")) {
             Editor editor = preferences.edit();
@@ -146,6 +146,15 @@ public class AnkiDroidApp extends Application {
             editor.commit();
         }
     }
+
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Preserve the language from the settings, e.g. when the device is rotated
+        setLanguage(getSharedPrefs(this).getString("language", ""));
+    }
+
 
     /**
      * Convenience method for accessing Shared preferences
@@ -167,15 +176,11 @@ public class AnkiDroidApp extends Application {
     }
 
     private static String getInternalMemoryDirectory() {
-    	return Environment.getDataDirectory().getAbsolutePath() + "/data/" + AnkiDroidApp.getInstance().getPackageName() + "/files";
+        return sInstance.getFilesDir().getAbsolutePath();
     }
 
     public static String getCacheStorageDirectory() {
-        File cache = new File(getInternalMemoryDirectory() + "/cache");
-        if (!cache.exists()) {
-            cache.mkdirs();
-        }
-        return cache.getAbsolutePath();
+        return sInstance.getCacheDir().getAbsolutePath();
     }
 
     public static String getCollectionPath() {
@@ -309,21 +314,22 @@ public class AnkiDroidApp extends Application {
     }
 
 
-    public static String getLanguage() {
-        return getInstance().mLanguage;
-    }
-
-    public static void setLanguage(String language) {
-        Locale locale;
-        if (language.equals("")) {
-            locale = Locale.getDefault();
-        } else {
-            locale = new Locale(language);
+    /**
+     * Sets the user language.
+     * 
+     * @param language The language to set
+     * @return True if the language has changed, else false
+     */
+    public static boolean setLanguage(String language) {
+        boolean languageChanged = false;
+        Configuration config = getInstance().getResources().getConfiguration();
+        final Locale newLocale = TextUtils.isEmpty(language) ? Locale.getDefault() : new Locale(language);
+        if (!config.locale.equals(newLocale)) {
+            languageChanged = true;
+            config.locale = newLocale;
+            getInstance().getResources().updateConfiguration(config, getInstance().getResources().getDisplayMetrics());
         }
-        Configuration config = new Configuration();
-        config.locale = locale;
-        getInstance().getResources().updateConfiguration(config, getInstance().getResources().getDisplayMetrics());
-        getInstance().mLanguage = language;
+        return languageChanged;
     }
 
 

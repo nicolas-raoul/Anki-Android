@@ -1,5 +1,5 @@
 /****************************************************************************************
- * Copyright (c) 2009 Daniel Sv�rd <daniel.svard@gmail.com>                             *
+ * Copyright (c) 2009 Daniel Svärd <daniel.svard@gmail.com>                             *
  * Copyright (c) 2009 Edu Zamora <edu.zasu@gmail.com>                                   *
  * Copyright (c) 2011 Norbert Nagold <norbert.nagold@gmail.com>                         *
  * Copyright (c) 2012 Kostas Spyropoulos <inigo.aldana@gmail.com>                       *
@@ -111,6 +111,9 @@ public class Utils {
     public static final int TIME_FORMAT_IN = 1;
     public static final int TIME_FORMAT_BEFORE = 2;
 
+    // List of all extensions we accept as font files.
+    private static final String[] FONT_FILE_EXTENSIONS = new String[] {".ttf",".ttc",".otf"};
+
     /* Prevent class from being instantiated */
     private Utils() { }
 
@@ -143,7 +146,7 @@ public class Utils {
     // timetable
     // aftertimetable
     // shorttimetable
-    
+
     /**
      * Return a string representing a time span (eg '2 days').
      * @param inFormat: if true, return eg 'in 2 days'
@@ -184,14 +187,14 @@ public class Utils {
         		if (Math.round(ftime * 10) == 10) {
         			formatId = R.array.next_review_in_s;
         		} else {
-        			formatId = R.array.next_review_in_p;    			
+        			formatId = R.array.next_review_in_p;
         		}
         		break;
         	case TIME_FORMAT_BEFORE:
         		if (Math.round(ftime * 10) == 10) {
         			formatId = R.array.next_review_before_s;
         		} else {
-        			formatId = R.array.next_review_before_p;    			
+        			formatId = R.array.next_review_before_p;
         		}
         		break;
         	case TIME_FORMAT_DEFAULT:
@@ -199,7 +202,7 @@ public class Utils {
         		if (Math.round(ftime * 10) == 10) {
         			formatId = R.array.next_review_s;
         		} else {
-        			formatId = R.array.next_review_p;    			
+        			formatId = R.array.next_review_p;
         		}
         		break;
         	}
@@ -220,11 +223,11 @@ public class Utils {
     	case TIME_MINUTES:
     		return seconds / 60.0;
     	case TIME_HOURS:
-    		return seconds / 3600.0;    		
+    		return seconds / 3600.0;
     	case TIME_DAYS:
-    		return seconds / 86400.0;    		
+    		return seconds / 86400.0;
     	case TIME_MONTHS:
-    		return seconds / 2592000.0;    		
+    		return seconds / 2592000.0;
     	case TIME_YEARS:
     		return seconds / 31536000.0;
 		default:
@@ -313,6 +316,9 @@ public class Utils {
      * @return The text with its HTML entities unescaped.
      */
     private static String entsToTxt(String html) {
+        // entitydefs defines nbsp as \xa0 instead of a standard space, so we
+        // replace it first
+        html = html.replace("&nbsp;", " ");
         Matcher htmlEntities = htmlEntitiesPattern.matcher(html);
         StringBuffer sb = new StringBuffer();
         while (htmlEntities.find()) {
@@ -517,7 +523,7 @@ public class Utils {
         }
         return ar;
     }
-        
+
     /**
      * Fields
      * ***********************************************************************************************
@@ -529,7 +535,7 @@ public class Utils {
             result.append(list[i]).append("\u001f");
         }
         if (list.length > 0) {
-            result.append(list[list.length - 1]);        	
+            result.append(list[list.length - 1]);
         }
         return result.toString();
     }
@@ -577,7 +583,7 @@ public class Utils {
             }
             BigInteger biginteger = new BigInteger(1, digest);
             result = biginteger.toString(16);
-            
+
             // pad with zeros to length of 40 This method used to pad
             // to the length of 32. As it turns out, sha1 has a digest
             // size of 160 bits, leading to a hex digest size of 40,
@@ -598,11 +604,11 @@ public class Utils {
     public static long fieldChecksum(String data) {
     	return Long.valueOf(checksum(stripHTMLMedia(data)).substring(0, 8), 16);
     }
-    
+
     /**
      * Generate the SHA1 checksum of a file.
      * @param file The file to be checked
-     * @return A string of length 32 containing the hexadecimal representation of the SHA1 checksum of the file's contents. 
+     * @return A string of length 32 containing the hexadecimal representation of the SHA1 checksum of the file's contents.
      */
     public static String fileChecksum(String file) {
         byte[] buffer = new byte[1024];
@@ -813,7 +819,7 @@ public class Utils {
     /**
      * Utility method to write to a file.
      * Throws the exception, so we can report it in syncing log
-     * @throws IOException 
+     * @throws IOException
      */
     public static void writeToFile(InputStream source, String destination) throws IOException {
         Log.i(AnkiDroidApp.TAG, "Creating new file... = " + destination);
@@ -856,7 +862,7 @@ public class Utils {
     public static void printJSONObject(JSONObject jsonObject, boolean writeToFile) {
         BufferedWriter buff;
         try {
-            buff = writeToFile ?  
+            buff = writeToFile ?
                     new BufferedWriter(new FileWriter("/sdcard/payloadAndroid.txt"), 8192) : null;
             try {
                 printJSONObject(jsonObject, "-", buff);
@@ -1034,7 +1040,7 @@ public class Utils {
 
     /**
      * Take an array of Long and return an array of long
-     * 
+     *
      * @param array The input with type Long[]
      * @return The output with type long[]
      */
@@ -1057,24 +1063,24 @@ public class Utils {
         }
         return results;
     }
-  
+
 
     public static void updateProgressBars(View view, int x, int y) {
         if (view == null) {
             return;
         }
         if (view.getParent() instanceof LinearLayout) {
-            LinearLayout.LayoutParams lparam = new LinearLayout.LayoutParams(0, 0);            
+            LinearLayout.LayoutParams lparam = new LinearLayout.LayoutParams(0, 0);
             lparam.height = y;
             lparam.width = x;
             view.setLayoutParams(lparam);
         } else if (view.getParent() instanceof FrameLayout) {
-        	FrameLayout.LayoutParams lparam = new FrameLayout.LayoutParams(0, 0);            
+        	FrameLayout.LayoutParams lparam = new FrameLayout.LayoutParams(0, 0);
             lparam.height = y;
             lparam.width = x;
             view.setLayoutParams(lparam);
         }
-    }  
+    }
 
 
     /**
@@ -1093,6 +1099,16 @@ public class Utils {
         return filename;
       }
       return filename.substring(0, dotPosition);
+    }
+
+
+    /** Returns only the filename extension. */
+    public static String getFileExtension(String filename) {
+        int dotPosition = filename.lastIndexOf('.');
+        if (dotPosition == -1) {
+            return "";
+        }
+        return filename.substring(dotPosition);
     }
 
 
@@ -1124,12 +1140,22 @@ public class Utils {
 		}
         List<AnkiFont> fonts = new ArrayList<AnkiFont>();
         for (int i = 0; i < fontsCount; i++) {
-            AnkiFont font = AnkiFont.createAnkiFont(context, fontsList[i].getAbsolutePath(), false);
-            if (font != null) {
-                fonts.add(font);
+            String filePath = fontsList[i].getAbsolutePath();
+            String filePathExtension = getFileExtension(filePath);
+            for (String fontExtension : FONT_FILE_EXTENSIONS) {
+                // Go through the list of allowed extensios.
+                if (filePathExtension.equalsIgnoreCase(fontExtension)) {
+                    // This looks like a font file.
+                    AnkiFont font = AnkiFont.createAnkiFont(context, filePath, false);
+                    if (font != null) {
+                        fonts.add(font);
+                    }
+                    break;  // No need to look for other file extensions.
+                }
             }
         }
         for (int i = 0; i < ankiDroidFonts.length; i++) {
+            // Assume all files in the assets directory are actually fonts.
             AnkiFont font = AnkiFont.createAnkiFont(context, ankiDroidFonts[i], true);
         	if (font != null) {
                 fonts.add(font);
@@ -1139,7 +1165,7 @@ public class Utils {
        	return fonts;
     }
 
-    
+
     /** Returns a list of apkg-files. */
     public static List<File> getImportableDecks() {
         String deckPath = AnkiDroidApp.getCurrentAnkiDroidDirectory();
@@ -1232,5 +1258,16 @@ public class Utils {
      */
     public static String jsonToString(JSONArray json) {
         return json.toString().replaceAll("\\\\/", "/");
+    }
+    
+    /**
+     * @return A description of the device, including the model and android version. No commas are present in the
+     * returned string.
+     */
+    public static String platDesc() {
+        // AnkiWeb reads this string and uses , and : as delimiters, so we remove them.
+        String model = android.os.Build.MODEL.replace(',', ' ').replace(':', ' ');
+        return String.format(Locale.US, "android:%s:%s",
+                android.os.Build.VERSION.RELEASE, model);
     }
 }

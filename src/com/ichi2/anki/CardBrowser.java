@@ -50,6 +50,7 @@ import android.widget.SimpleAdapter;
 import android.widget.TextView;
 
 import com.ichi2.anim.ActivityTransitionAnimation;
+import com.ichi2.anki.multimediacard.activity.MultimediaCardEditorActivity;
 import com.ichi2.anki.receiver.SdCardReceiver;
 import com.ichi2.async.DeckTask;
 import com.ichi2.async.DeckTask.TaskData;
@@ -74,9 +75,9 @@ import java.util.List;
 import java.util.Map;
 
 public class CardBrowser extends Activity {
-//    private List<Long> mCardIds = new ArrayList<Long>();
+    // private List<Long> mCardIds = new ArrayList<Long>();
     private ArrayList<HashMap<String, String>> mCards;
-    //private ArrayList<HashMap<String, String>> mAllCards;
+    // private ArrayList<HashMap<String, String>> mAllCards;
     private HashMap<String, String> mDeckNames;
     private ListView mCardsListView;
     private SimpleAdapter mCardsAdapter;
@@ -95,8 +96,8 @@ public class CardBrowser extends Activity {
 
     private int mOrder;
     private boolean mOrderAsc;
-	private int mField;
-	private int mTotalCount;
+    private int mField;
+    private int mTotalCount;
 
     private static final int CONTEXT_MENU_MARK = 0;
     private static final int CONTEXT_MENU_SUSPEND = 1;
@@ -159,7 +160,7 @@ public class CardBrowser extends Activity {
     private boolean mWholeCollection;
 
     private String[] allTags;
-	private String[] mFields;
+    private String[] mFields;
     private HashSet<String> mSelectedTags;
 
     private boolean mPrefFixArabic;
@@ -211,15 +212,18 @@ public class CardBrowser extends Activity {
                     return;
 
                 case CONTEXT_MENU_DETAILS:
-    				Card tempCard = mCol.getCard(Long.parseLong(mCards.get(mPositionInCardsList).get("id")));
-    				Themes.htmlOkDialog(CardBrowser.this, 
-    						getResources().getString(R.string.card_browser_card_details), 
-    						CardStats.report(CardBrowser.this, tempCard, mCol)).show();
+                    Card tempCard = mCol.getCard(Long.parseLong(mCards.get(mPositionInCardsList).get("id")));
+                    Themes.htmlOkDialog(
+                            CardBrowser.this,
+                            getResources().getString(R.string.card_browser_card_details),
+                            CardStats.report(CardBrowser.this, tempCard, mCol))
+                        .show();
                     return;
             }
         }
 
     };
+
 
     private void onSearch() {
         mSearchTerms = mSearchEditText.getText().toString().toLowerCase();
@@ -228,6 +232,7 @@ public class CardBrowser extends Activity {
         }
         searchCards();
     }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -258,7 +263,7 @@ public class CardBrowser extends Activity {
         int sflRelativeFontSize = preferences.getInt("relativeCardBrowserFontSize", DEFAULT_FONT_SIZE_RATIO);
         String sflCustomFont = preferences.getString("browserEditorFont", "");
         mPrefFixArabic = preferences.getBoolean("fixArabicText", false);
-        
+
         Resources res = getResources();
         mOrderByFields = res.getStringArray(R.array.card_browser_order_labels);
         try {
@@ -271,7 +276,7 @@ public class CardBrowser extends Activity {
                 }
             }
             if (mOrder == 1 && preferences.getBoolean("cardBrowserNoSorting", false)) {
-            	mOrder = 0;
+                mOrder = 0;
             }
             mOrderAsc = Upgrade.upgradeJSONIfNecessary(mCol, mCol.getConf(), "sortBackwards", false);
             // default to descending for non-text fields
@@ -285,9 +290,14 @@ public class CardBrowser extends Activity {
         mCards = new ArrayList<HashMap<String, String>>();
         mCardsListView = (ListView) findViewById(R.id.card_browser_list);
 
-        mCardsAdapter = new SizeControlledListAdapter(this, mCards, R.layout.card_item, new String[] { "sfld",
-                "deck", "flags" }, new int[] { R.id.card_sfld, R.id.card_deck, R.id.card_item },
-                sflRelativeFontSize, sflCustomFont);
+        mCardsAdapter = new SizeControlledListAdapter(
+                this,
+                mCards,
+                R.layout.card_item,
+                new String[] { "sfld", "deck", "flags" },
+                new int[] { R.id.card_sfld, R.id.card_deck, R.id.card_item },
+                sflRelativeFontSize,
+                sflCustomFont);
         mCardsAdapter.setViewBinder(new SimpleAdapter.ViewBinder() {
             @Override
             public boolean setViewValue(View view, Object arg1, String text) {
@@ -313,11 +323,12 @@ public class CardBrowser extends Activity {
         mCardsListView.setOnItemClickListener(new OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent editCard = new Intent(CardBrowser.this, CardEditor.class);
-                editCard.putExtra(CardEditor.EXTRA_CALLER, CardEditor.CALLER_CARDBROWSER_EDIT);
                 mPositionInCardsList = position;
                 long cardId = Long.parseLong(mCards.get(mPositionInCardsList).get("id"));
                 sCardBrowserCard = mCol.getCard(cardId);
+                Intent editCard = new Intent(CardBrowser.this, CardEditor.class);
+                editCard.putExtra(CardEditor.EXTRA_CALLER, CardEditor.CALLER_CARDBROWSER_EDIT);
+                editCard.putExtra(CardEditor.EXTRA_CARD_ID, sCardBrowserCard.getId());
                 startActivityForResult(editCard, EDIT_CARD);
                 if (AnkiDroidApp.SDK_VERSION > 4) {
                     ActivityTransitionAnimation.slide(CardBrowser.this, ActivityTransitionAnimation.LEFT);
@@ -363,7 +374,7 @@ public class CardBrowser extends Activity {
         mSelectedTags = new HashSet<String>();
 
         if (!preferences.getBoolean("cardBrowserNoSearchOnOpen", false)) {
-        	searchCards();
+            searchCards();
         }
     }
 
@@ -525,7 +536,14 @@ public class CardBrowser extends Activity {
             closeCardBrowser(DeckPicker.RESULT_DB_ERROR);
         }
 
-        if (requestCode == EDIT_CARD && resultCode != RESULT_CANCELED) {
+        // TODO(flerda): Currently we are using the regular card editor and
+        // delete is not possible. We should probably update this went
+        // switching back to the multimedia card editor.
+        if (requestCode == EDIT_CARD && resultCode == MultimediaCardEditorActivity.RESULT_DELETED) {
+            deleteNote(sCardBrowserCard);
+            DeckTask.launchDeckTask(DeckTask.TASK_TYPE_DISMISS_NOTE, mDeleteNoteHandler,
+                    new DeckTask.TaskData(mCol.getSched(), sCardBrowserCard, 3));
+        } else if (requestCode == EDIT_CARD && resultCode != RESULT_CANCELED) {
             Log.i(AnkiDroidApp.TAG, "CardBrowser: Saving card...");
             DeckTask.launchDeckTask(DeckTask.TASK_TYPE_UPDATE_FACT, mUpdateCardHandler,
                     new DeckTask.TaskData(mCol.getSched(), sCardBrowserCard, false));
@@ -555,13 +573,15 @@ public class CardBrowser extends Activity {
                                     mOrder = which;
                                     mOrderAsc = false;
                                     try {
-                                    	if (mOrder == 0) {
+                                        if (mOrder == 0) {
                                             mCol.getConf().put("sortType", fSortTypes[1]);
-                                            AnkiDroidApp.getSharedPrefs(getBaseContext()).edit().putBoolean("cardBrowserNoSorting", true).commit();
-                                    	} else {
+                                            AnkiDroidApp.getSharedPrefs(getBaseContext()).edit()
+                                                    .putBoolean("cardBrowserNoSorting", true).commit();
+                                        } else {
                                             mCol.getConf().put("sortType", fSortTypes[mOrder]);
-                                            AnkiDroidApp.getSharedPrefs(getBaseContext()).edit().putBoolean("cardBrowserNoSorting", false).commit();
-                                    	}
+                                            AnkiDroidApp.getSharedPrefs(getBaseContext()).edit()
+                                                    .putBoolean("cardBrowserNoSorting", false).commit();
+                                        }
                                         // default to descending for non-text fields
                                         if (fSortTypes[mOrder].equals("noteFld")) {
                                             mOrderAsc = true;
@@ -627,7 +647,7 @@ public class CardBrowser extends Activity {
                                 tags.substring(1, tags.length() - 1)));
                         StringBuilder sb = new StringBuilder();
                         for (String tag : mSelectedTags) {
-                            sb.append("tag:").append(tag).append(" "); 
+                            sb.append("tag:").append(tag).append(" ");
                         }
                         mSearchTerms = sb.toString();
                         searchCards();
@@ -745,9 +765,8 @@ public class CardBrowser extends Activity {
         String searchText = mRestrictOnDeck + mSearchTerms;
         if (mCol != null) {
             mCards.clear();
-            DeckTask.launchDeckTask(DeckTask.TASK_TYPE_SEARCH_CARDS,
-                    mSearchCardsHandler, new DeckTask.TaskData(
-                            new Object[]{mCol, mDeckNames, searchText, ((mOrder == CARD_ORDER_NONE)? "": "true")}));
+            DeckTask.launchDeckTask(DeckTask.TASK_TYPE_SEARCH_CARDS, mSearchCardsHandler, new DeckTask.TaskData(
+                    new Object[] { mCol, mDeckNames, searchText, ((mOrder == CARD_ORDER_NONE) ? "" : "true") }));
         }
     }
 
@@ -761,7 +780,7 @@ public class CardBrowser extends Activity {
                     public void onPostExecute(DeckTask.TaskData result) {
                         if (mOpenCollectionDialog.isShowing()) {
                             try {
-                            	mOpenCollectionDialog.dismiss();
+                                mOpenCollectionDialog.dismiss();
                             } catch (Exception e) {
                                 Log.e(AnkiDroidApp.TAG, "onPostExecute - Dialog dismiss Exception = " + e.getMessage());
                             }
@@ -773,32 +792,36 @@ public class CardBrowser extends Activity {
                             onCreate(savedInstanceState);
                         }
                     }
-
-
+        
+        
                     @Override
                     public void onPreExecute() {
-                    	mOpenCollectionDialog = StyledOpenCollectionDialog.show(CardBrowser.this, getResources().getString(R.string.open_collection), new OnCancelListener() {
+                        mOpenCollectionDialog = StyledOpenCollectionDialog.show(
+                                CardBrowser.this,
+                                getResources().getString(R.string.open_collection),
+                                new OnCancelListener() {
                                     @Override
                                     public void onCancel(DialogInterface arg0) {
                                         finish();
                                     }
                                 });
                     }
-
-
+        
+        
                     @Override
                     public void onProgressUpdate(DeckTask.TaskData... values) {
                     }
                 },
-                new DeckTask.TaskData(AnkiDroidApp.getCurrentAnkiDroidDirectory()
-                        + AnkiDroidApp.COLLECTION_PATH));
+                new DeckTask.TaskData(AnkiDroidApp.getCurrentAnkiDroidDirectory() + AnkiDroidApp.COLLECTION_PATH));
     }
 
 
     private void updateList() {
         mCardsAdapter.notifyDataSetChanged();
         int count = mCards.size();
-        AnkiDroidApp.getCompat().setSubtitle(this, getResources().getQuantityString(R.plurals.card_browser_subtitle, count, count, mTotalCount));
+        AnkiDroidApp.getCompat().setSubtitle(
+                this,
+                getResources().getQuantityString(R.plurals.card_browser_subtitle, count, count, mTotalCount));
     }
 
 
@@ -854,6 +877,11 @@ public class CardBrowser extends Activity {
             if (pos >= 0 && pos < mCards.size()) {
                 mCards.remove(pos);
             }
+        }
+        // Delete itself if not deleted
+        pos = getPosition(mCards, card.getId());
+        if (pos >= 0 && pos < mCards.size()) {
+            mCards.remove(pos);
         }
         updateList();
     }
@@ -1062,6 +1090,7 @@ public class CardBrowser extends Activity {
             updateList();
         }
 
+
         @Override
         public void onPreExecute() {
             Resources res = getResources();
@@ -1073,10 +1102,11 @@ public class CardBrowser extends Activity {
             }
         }
 
+
         @Override
         public void onPostExecute(TaskData result) {
-        	mTotalCount = result.getInt();
-        	updateList();
+            mTotalCount = result.getInt();
+            updateList();
             if (mProgressDialog != null && mProgressDialog.isShowing()) {
                 mProgressDialog.dismiss();
             }
@@ -1087,6 +1117,7 @@ public class CardBrowser extends Activity {
         @Override
         public void onProgressUpdate(TaskData... values) {
         }
+
 
         @Override
         public void onPreExecute() {
@@ -1099,6 +1130,7 @@ public class CardBrowser extends Activity {
             }
         }
 
+
         @Override
         public void onPostExecute(TaskData result) {
             if (mProgressDialog != null && mProgressDialog.isShowing()) {
@@ -1109,7 +1141,6 @@ public class CardBrowser extends Activity {
             updateList();
         }
     };
-
 
     private DeckTask.TaskListener mSortCardsHandler = new DeckTask.TaskListener() {
         @Override
@@ -1223,6 +1254,7 @@ public class CardBrowser extends Activity {
         private float originalTextSize = -1.0f;
         private Typeface mCustomTypeface = null;
 
+
         public SizeControlledListAdapter(Context context, List<? extends Map<String, ?>> data, int resource,
                 String[] from, int[] to, int fontSizeScalePcent, String customFont) {
             super(context, data, resource, from, to);
@@ -1274,7 +1306,7 @@ public class CardBrowser extends Activity {
                 @Override
                 public void onReceive(Context context, Intent intent) {
                     if (intent.getAction().equals(SdCardReceiver.MEDIA_EJECT)) {
-                    	finish();
+                        finish();
                     }
                 }
             };

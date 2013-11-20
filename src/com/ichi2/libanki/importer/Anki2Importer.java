@@ -123,6 +123,7 @@ public class Anki2Importer {
                 cnt = _import();
             } finally {
                 // do not close collection but close only db (in order not to confuse access counting in storage.java
+                // Note that the media database is still open and needs to be closed below.
                 AnkiDatabaseManager.closeDatabase(mSrc.getPath());
             }
             // import static media
@@ -141,6 +142,7 @@ public class Anki2Importer {
                 }
             }
             mZip.close();
+            mSrc.getMedia().close();
             // delete tmp dir
             File dir = new File(tempDir);
             BackupManager.removeDir(dir);

@@ -157,8 +157,8 @@ public class StudyOptionsFragment extends Fragment {
 //    private View mReviewEarlyView;
     private TextView mTextCongratsMessage;
     private Button mButtonCongratsUndo;
+    private Button mButtonCongratsUnbury;
     private Button mButtonCongratsOpenOtherDeck;
-    private Button mButtonCongratsFinish;
     private Button mButtonCongratsCustomStudy;
 
     private View mCustomStudyDetailsView;
@@ -233,15 +233,16 @@ public class StudyOptionsFragment extends Fragment {
                         finishCongrats();
                     }
                     return;
+                case R.id.studyoptions_congrats_unbury:
+                    col.getSched().unburyCards();
+                    resetAndUpdateValuesFromDeck();
+                    finishCongrats();
+                    return;
                 case R.id.studyoptions_congrats_open_other_deck:
                     closeStudyOptions();
                     return;
                 case R.id.studyoptions_congrats_customstudy:
                     showDialog(DIALOG_CUSTOM_STUDY);
-                    return;
-                case R.id.studyoptions_congrats_finish:
-                    updateValuesFromDeck();
-                    finishCongrats();
                     return;
                 case R.id.studyoptions_card_browser:
                     openCardBrowser();
@@ -413,7 +414,6 @@ public class StudyOptionsFragment extends Fragment {
 
         if (getArguments().getBoolean("onlyFnsMsg")) {
         	prepareCongratsView();
-            mButtonCongratsFinish.setVisibility(View.GONE);
             return mCongratsView;
         } else {
         	// clear undo if new deck is opened (do not clear if only congrats msg is shown)
@@ -522,9 +522,7 @@ public class StudyOptionsFragment extends Fragment {
         mDontSaveOnStop = true;
         Intent reviewer = new Intent(getActivity(), Reviewer.class);
         startActivityForResult(reviewer, REQUEST_REVIEW);
-        if (AnkiDroidApp.SDK_VERSION > 4) {
-            ActivityTransitionAnimation.slide(getActivity(), ActivityTransitionAnimation.LEFT);
-        }
+        animateLeft();
         AnkiDroidApp.getCol().startTimebox();
     }
 
@@ -533,6 +531,10 @@ public class StudyOptionsFragment extends Fragment {
         Intent intent = new Intent(getActivity(), CardEditor.class);
         intent.putExtra(CardEditor.EXTRA_CALLER, CardEditor.CALLER_STUDYOPTIONS);
         startActivityForResult(intent, ADD_NOTE);
+        animateLeft();
+    }
+
+    private void animateLeft() {
         if (AnkiDroidApp.SDK_VERSION > 4) {
             ActivityTransitionAnimation.slide(getActivity(), ActivityTransitionAnimation.LEFT);
         }
@@ -673,17 +675,18 @@ public class StudyOptionsFragment extends Fragment {
 
         mTextCongratsMessage.setOnClickListener(mButtonClickListener);
         mButtonCongratsUndo = (Button) mCongratsView.findViewById(R.id.studyoptions_congrats_undo);
+        mButtonCongratsUnbury = (Button) mCongratsView.findViewById(R.id.studyoptions_congrats_unbury);
         mButtonCongratsCustomStudy = (Button) mCongratsView.findViewById(R.id.studyoptions_congrats_customstudy);
         mButtonCongratsOpenOtherDeck = (Button) mCongratsView.findViewById(R.id.studyoptions_congrats_open_other_deck);
         if (mFragmented) {
             mButtonCongratsOpenOtherDeck.setVisibility(View.GONE);
         }
-        mButtonCongratsFinish = (Button) mCongratsView.findViewById(R.id.studyoptions_congrats_finish);
-
+        
+        
         mButtonCongratsUndo.setOnClickListener(mButtonClickListener);
+        mButtonCongratsUnbury.setOnClickListener(mButtonClickListener);
         mButtonCongratsCustomStudy.setOnClickListener(mButtonClickListener);
         mButtonCongratsOpenOtherDeck.setOnClickListener(mButtonClickListener);
-        mButtonCongratsFinish.setOnClickListener(mButtonClickListener);
     }
 
 
@@ -725,6 +728,7 @@ public class StudyOptionsFragment extends Fragment {
                                 finishCongrats();
                             } catch (NumberFormatException e) {
                                 // ignore non numerical values
+                                Themes.showThemedToast(getActivity().getBaseContext(), getResources().getString(R.string.custom_study_invalid_number), false);
                             } catch (JSONException e) {
                                 throw new RuntimeException(e);
                             }
@@ -755,6 +759,7 @@ public class StudyOptionsFragment extends Fragment {
                                 finishCongrats();
                             } catch (NumberFormatException e) {
                                 // ignore non numerical values
+                                Themes.showThemedToast(getActivity().getBaseContext(), getResources().getString(R.string.custom_study_invalid_number), false);
                             } catch (JSONException e) {
                                 throw new RuntimeException(e);
                             }
@@ -770,14 +775,17 @@ public class StudyOptionsFragment extends Fragment {
         		styledDialog.setButtonOnClickListener(Dialog.BUTTON_POSITIVE, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                    	int forgottenDays = Integer.parseInt(((EditText) mCustomStudyEditText).getText().toString());
-                    	JSONArray ar = new JSONArray();
-                    	try {
-							ar.put(0, 1);
-						} catch (JSONException e) {
-							throw new RuntimeException(e);
-						}
-                    	createFilteredDeck(ar, new Object[]{String.format(Locale.US, "rated:%d:1", forgottenDays), 9999, Sched.DYN_RANDOM}, false);
+                        JSONArray ar = new JSONArray();
+                        try {
+                            int forgottenDays = Integer.parseInt(((EditText) mCustomStudyEditText).getText().toString());
+                            ar.put(0, 1);
+                            createFilteredDeck(ar, new Object[]{String.format(Locale.US, "rated:%d:1", forgottenDays), 9999, Sched.DYN_RANDOM}, false);
+                        } catch (NumberFormatException e) {
+                            // ignore non numerical values
+                            Themes.showThemedToast(getActivity().getBaseContext(), getResources().getString(R.string.custom_study_invalid_number), false);
+                        } catch (JSONException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 });
         		break;
@@ -789,8 +797,13 @@ public class StudyOptionsFragment extends Fragment {
         		styledDialog.setButtonOnClickListener(Dialog.BUTTON_POSITIVE, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                    	int days = Integer.parseInt(((EditText) mCustomStudyEditText).getText().toString());
-                    	createFilteredDeck(new JSONArray(), new Object[]{String.format(Locale.US, "prop:due<=%d", days), 9999, Sched.DYN_DUE}, true);
+                        try {
+                            int days = Integer.parseInt(((EditText) mCustomStudyEditText).getText().toString());
+                            createFilteredDeck(new JSONArray(), new Object[]{String.format(Locale.US, "prop:due<=%d", days), 9999, Sched.DYN_DUE}, true);    
+                        } catch (NumberFormatException e) {
+                            // ignore non numerical values
+                            Themes.showThemedToast(getActivity().getBaseContext(), getResources().getString(R.string.custom_study_invalid_number), false);
+                        }
                     }
                 });
         		break;
@@ -802,8 +815,13 @@ public class StudyOptionsFragment extends Fragment {
         		styledDialog.setButtonOnClickListener(Dialog.BUTTON_POSITIVE, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
-                    	int randomCards = Integer.parseInt(((EditText) mCustomStudyEditText).getText().toString());
-                    	createFilteredDeck(new JSONArray(), new Object[]{"", randomCards, Sched.DYN_RANDOM}, true);
+                        try {
+                            int randomCards = Integer.parseInt(((EditText) mCustomStudyEditText).getText().toString());
+                            createFilteredDeck(new JSONArray(), new Object[]{"", randomCards, Sched.DYN_RANDOM}, true);
+                        } catch (NumberFormatException e) {
+                            // ignore non numerical values
+                            Themes.showThemedToast(getActivity().getBaseContext(), getResources().getString(R.string.custom_study_invalid_number), false);
+                        }
                     }
                 });
         		break;
@@ -922,8 +940,19 @@ public class StudyOptionsFragment extends Fragment {
     			ar.getJSONArray(0).put(1, terms[1]);
     			ar.getJSONArray(0).put(2, terms[2]);
     			dyn.put("resched", resched);
-    			// generate cards
-    			finishCongrats();
+    			
+    			if (mFragmented) {
+                    Bundle config = new Bundle();
+                    config.putString("searchSuffix", "'deck:" +dyn.getString("name") + "'");
+                    initAllContentViews(getLayoutInflater(config));
+                    finishCongrats();
+                } else {
+        			// Load a new fragment with the filtered deck view. The config passed is null, so it uses the
+        			// current deck. The deck we just created is internally set as the current deck.
+        			((StudyOptionsActivity)getActivity()).loadContent(false, null);
+    			}
+    			
+    			// Initial rebuild
     			mProgressDialog = StyledProgressDialog.show(getActivity(), "",
     					getResources().getString(R.string.rebuild_custom_study_deck), true);
     			DeckTask.launchDeckTask(DeckTask.TASK_TYPE_REBUILD_CRAM, mRebuildCustomStudyListener, new DeckTask.TaskData(
@@ -1083,16 +1112,15 @@ public class StudyOptionsFragment extends Fragment {
     }
 
     public boolean congratsShowing() {
-    	if (mCurrentContentView == CONTENT_CONGRATS) {
+        if (mCurrentContentView == CONTENT_CONGRATS) {
             updateValuesFromDeck();
-        	finishCongrats();
-        	return true;
-    	} else {
-    		return false;
-    	}
+            return true;
+        } else {
+            return false;
+        }
     }
 
-    private void finishCongrats() {
+    public void finishCongrats() {
     	mCurrentContentView = CONTENT_STUDY_OPTIONS;
         mStudyOptionsView.setVisibility(View.INVISIBLE);
         mCongratsView.setVisibility(View.INVISIBLE);
@@ -1114,7 +1142,19 @@ public class StudyOptionsFragment extends Fragment {
             mButtonCongratsUndo.setText(res.getString(R.string.studyoptions_congrats_undo,
                     AnkiDroidApp.getCol().undoName(res)));
         }
+        if (AnkiDroidApp.colIsOpen() && !AnkiDroidApp.getCol().getSched().haveBuried()) {
+            mButtonCongratsUnbury.setVisibility(View.GONE);
+        }
         mTextCongratsMessage.setText(AnkiDroidApp.getCol().getSched().finishedMsg(getActivity()));
+        // Filtered decks must not have a custom study button
+        try {
+            if (AnkiDroidApp.getCol().getDecks().current().getInt("dyn") == 1) {
+                mButtonCongratsCustomStudy.setEnabled(false);
+                mButtonCongratsCustomStudy.setVisibility(View.GONE);
+            }
+        } catch (JSONException e) {
+            throw new RuntimeException();
+        }
     }
 
 
@@ -1122,9 +1162,7 @@ public class StudyOptionsFragment extends Fragment {
         mDontSaveOnStop = true;
         Intent cardBrowser = new Intent(getActivity(), CardBrowser.class);
         startActivityForResult(cardBrowser, BROWSE_CARDS);
-        if (AnkiDroidApp.SDK_VERSION > 4) {
-            ActivityTransitionAnimation.slide(getActivity(), ActivityTransitionAnimation.LEFT);
-        }
+        animateLeft();
     }
 
 

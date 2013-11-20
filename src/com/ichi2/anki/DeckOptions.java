@@ -25,14 +25,15 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.KeyEvent;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -40,6 +41,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -50,7 +52,10 @@ import org.json.JSONObject;
 import com.ichi2.anim.ActivityTransitionAnimation;
 import com.ichi2.anki.R;
 import com.ichi2.anki.receiver.SdCardReceiver;
+import com.ichi2.async.DeckTask;
 import com.ichi2.libanki.Collection;
+import com.ichi2.preferences.StepsPreference;
+import com.ichi2.themes.StyledProgressDialog;
 import com.ichi2.themes.Themes;
 
 /**
@@ -68,13 +73,12 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
 
         private Map<String, String> mValues = new HashMap<String, String>();
         private Map<String, String> mSummaries = new HashMap<String, String>();
-
+        private StyledProgressDialog mProgressDialog;
 
         public DeckPreferenceHack() {
             this.cacheValues();
         }
-
-
+                
         protected void cacheValues() {
             Log.i(AnkiDroidApp.TAG, "DeckOptions - CacheValues");
 
@@ -84,44 +88,45 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
                 mValues.put("name", mDeck.getString("name"));
                 mValues.put("desc", mDeck.getString("desc"));
                 mValues.put("deckConf", mDeck.getString("conf"));
+                // general
                 mValues.put("maxAnswerTime", mOptions.getString("maxTaken"));
                 mValues.put("showAnswerTimer", Boolean.toString(mOptions.getInt("timer") == 1));
                 mValues.put("autoPlayAudio", Boolean.toString(mOptions.getBoolean("autoplay")));
                 mValues.put("replayQuestion", Boolean.toString(mOptions.getBoolean("replayq")));
                 // new
                 JSONObject newOptions = mOptions.getJSONObject("new");
-                mValues.put("newSteps", getDelays(newOptions.getJSONArray("delays")));
+                mValues.put("newSteps", StepsPreference.convertFromJSON(newOptions.getJSONArray("delays")));
                 mValues.put("newGradIvl", newOptions.getJSONArray("ints").getString(0));
                 mValues.put("newEasy", newOptions.getJSONArray("ints").getString(1));
                 mValues.put("newFactor", Integer.toString(newOptions.getInt("initialFactor") / 10));
                 mValues.put("newOrder", newOptions.getString("order"));
                 mValues.put("newPerDay", newOptions.getString("perDay"));
-                mValues.put("newSeparate", Boolean.toString(newOptions.getBoolean("separate")));
+                mValues.put("newBury", Boolean.toString(newOptions.optBoolean("bury", true)));
                 // rev
                 JSONObject revOptions = mOptions.getJSONObject("rev");
                 mValues.put("revPerDay", revOptions.getString("perDay"));
-                mValues.put("revSpaceMax", Integer.toString((int) (revOptions.getDouble("fuzz") * 100)));
-                mValues.put("revSpaceMin", revOptions.getString("minSpace"));
                 mValues.put("easyBonus", Integer.toString((int) (revOptions.getDouble("ease4") * 100)));
-                mValues.put("revIvlFct", revOptions.getString("ivlFct"));
+                mValues.put("revIvlFct", Integer.toString((int) (revOptions.getDouble("ivlFct") * 100)));
                 mValues.put("revMaxIvl", revOptions.getString("maxIvl"));
+                mValues.put("revBury", Boolean.toString(revOptions.optBoolean("bury", true)));
                 // lapse
                 JSONObject lapOptions = mOptions.getJSONObject("lapse");
-                mValues.put("lapSteps", getDelays(lapOptions.getJSONArray("delays")));
+                mValues.put("lapSteps", StepsPreference.convertFromJSON(lapOptions.getJSONArray("delays")));
                 mValues.put("lapNewIvl", Integer.toString((int) (lapOptions.getDouble("mult") * 100)));
                 mValues.put("lapMinIvl", lapOptions.getString("minInt"));
                 mValues.put("lapLeechThres", lapOptions.getString("leechFails"));
                 mValues.put("lapLeechAct", lapOptions.getString("leechAction"));
+                // options group management
+                mValues.put("currentConf", mCol.getDecks().getConf(mDeck.getLong("conf")).getString("name"));
             } catch (JSONException e) {
             	addMissingValues();
             	finish();
             }
         }
-
+        
         public class Editor implements SharedPreferences.Editor {
 
             private ContentValues mUpdate = new ContentValues();
-
 
             @Override
             public SharedPreferences.Editor clear() {
@@ -137,79 +142,111 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
 
                 try {
                     for (Entry<String, Object> entry : mUpdate.valueSet()) {
-                        Log.i(AnkiDroidApp.TAG, "Change value for key '" + entry.getKey() + "': " + entry.getValue());
-                        if (entry.getKey().equals("name")) {
-                            if (!mCol.getDecks().rename(mDeck, (String) entry.getValue())) {
+                        String key =  entry.getKey();
+                        Object value = entry.getValue();
+                        Log.i(AnkiDroidApp.TAG, "Change value for key '" + key + "': " + value);
+                        
+                        if (key.equals("maxAnswerTime")) {
+                            mOptions.put("maxTaken", (Integer) value);
+                        } else if (key.equals("newFactor")) {
+                            mOptions.getJSONObject("new").put("initialFactor", (Integer) value * 10);
+                        } else if (key.equals("newOrder")) {
+                            int newValue = Integer.parseInt((String) value);
+                            // Sorting is slow, so only do it if we change order
+                            int oldValue = mOptions.getJSONObject("new").getInt("order");
+                            if (oldValue != newValue) {
+                                mOptions.getJSONObject("new").put("order", newValue);
+                                DeckTask.launchDeckTask(DeckTask.TASK_TYPE_REORDER, mConfChangeHandler,
+                                        new DeckTask.TaskData(new Object[]{mCol, mOptions}));
+                            }
+                            mOptions.getJSONObject("new").put("order", Integer.parseInt((String) value));
+                        } else if (key.equals("newPerDay")) {
+                            mOptions.getJSONObject("new").put("perDay", (Integer) value);
+                        } else if (key.equals("newGradIvl")) {
+                            JSONArray ja = new JSONArray(); //[graduating, easy]
+                            ja.put((Integer) value);
+                            ja.put(mOptions.getJSONObject("new").getJSONArray("ints").get(1));
+                            mOptions.getJSONObject("new").put("ints", ja);
+                        } else if (key.equals("newEasy")) {
+                            JSONArray ja = new JSONArray(); //[graduating, easy]
+                            ja.put(mOptions.getJSONObject("new").getJSONArray("ints").get(0));
+                            ja.put((Integer) value);
+                            mOptions.getJSONObject("new").put("ints", ja);
+                        } else if (key.equals("newBury")) {
+                            mOptions.getJSONObject("new").put("bury", (Boolean) value);
+                        } else if (key.equals("revPerDay")) {
+                            mOptions.getJSONObject("rev").put("perDay", (Integer) value);
+                        } else if (key.equals("easyBonus")) {
+                            mOptions.getJSONObject("rev").put("ease4", (Integer) value / 100.0f);
+                        } else if (key.equals("revIvlFct")) {
+                            mOptions.getJSONObject("rev").put("ivlFct", (Integer) value / 100.0f);
+                        } else if (key.equals("revMaxIvl")) {
+                            mOptions.getJSONObject("rev").put("maxIvl", (Integer) value);
+                        } else if (key.equals("revBury")) {
+                            mOptions.getJSONObject("rev").put("bury", (Boolean) value);
+                        } else if (key.equals("lapMinIvl")) {
+                            mOptions.getJSONObject("lapse").put("minInt", (Integer) value);
+                        } else if (key.equals("lapLeechThres")) {
+                            mOptions.getJSONObject("lapse").put("leechFails", (Integer) value);
+                        } else if (key.equals("lapLeechAct")) {
+                            mOptions.getJSONObject("lapse").put("leechAction", Integer.parseInt((String) value));
+                        } else if (key.equals("lapNewIvl")) {
+                            mOptions.getJSONObject("lapse").put("mult", (Integer) value / 100.0f);
+                        } else if (key.equals("showAnswerTimer")) {
+                            mOptions.put("timer", (Boolean) value ? 1 : 0);
+                        } else if (key.equals("autoPlayAudio")) {
+                            mOptions.put("autoplay", (Boolean) value);
+                        } else if (key.equals("replayQuestion")) {
+                            mOptions.put("replayq", (Boolean) value);
+                        } else if (key.equals("name")) {
+                            if (!mCol.getDecks().rename(mDeck, (String) value)) {
                                 Themes.showThemedToast(DeckOptions.this,
                                         getResources().getString(R.string.rename_error, mDeck.get("name")), false);
                             }
-                        } else if (entry.getKey().equals("desc")) {
-                            mDeck.put("desc", (String) entry.getValue());
+                        } else if (key.equals("desc")) {
+                            mDeck.put("desc", (String) value);
                             mCol.getDecks().save(mDeck);
-                        } else if (entry.getKey().equals("deckConf")) {
-                            mCol.getDecks().setConf(mDeck, Long.parseLong((String) entry.getValue()));
-                            mOptions = mCol.getDecks().confForDid(mDeck.getLong("id"));
-                        } else if (entry.getKey().equals("maxAnswerTime")) {
-                            mOptions.put("maxTaken", Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("showAnswerTimer")) {
-                            mOptions.put("timer", (Boolean) entry.getValue() ? 1 : 0);
-                        } else if (entry.getKey().equals("autoPlayAudio")) {
-                            mOptions.put("autoplay", (Boolean) entry.getValue());
-                        } else if (entry.getKey().equals("replayQuestion")) {
-                            mOptions.put("replayq", (Boolean) entry.getValue());
-                        } else if (entry.getKey().equals("newSteps")) {
-                            String steps = (String) entry.getValue();
-                            if (steps.matches("[0-9\\s]*")) {
-                                mOptions.getJSONObject("new").put("delays", getDelays(steps));
+                        } else if (key.equals("newSteps")) {
+                            mOptions.getJSONObject("new").put("delays", StepsPreference.convertToJSON((String) value));
+                        } else if (key.equals("lapSteps")) {
+                            mOptions.getJSONObject("lapse").put("delays", StepsPreference.convertToJSON((String) value));
+                        } else if (key.equals("deckConf")) {
+                            long newConfId = Long.parseLong((String) value);
+                            mOptions = mCol.getDecks().getConf(newConfId);
+                            DeckTask.launchDeckTask(DeckTask.TASK_TYPE_CONF_CHANGE, mConfChangeHandler,
+                                    new DeckTask.TaskData(new Object[]{mCol, mDeck, mOptions}));
+                        } else if (key.equals("confRename")) {
+                            String newName = (String) value;
+                            if (!TextUtils.isEmpty(newName)) {
+                                mOptions.put("name", newName);
                             }
-                        } else if (entry.getKey().equals("newGradIvl")) {
-                            JSONArray ja = new JSONArray();
-                            ja.put(Integer.parseInt((String) entry.getValue()));
-                            ja.put(mOptions.getJSONObject("new").getJSONArray("ints").get(1));
-                            mOptions.getJSONObject("new").put("ints", ja);
-                        } else if (entry.getKey().equals("newEasy")) {
-                            JSONArray ja = new JSONArray();
-                            ja.put(mOptions.getJSONObject("new").getJSONArray("ints").get(0));
-                            ja.put(Integer.parseInt((String) entry.getValue()));
-                            mOptions.getJSONObject("new").put("ints", ja);
-                        } else if (entry.getKey().equals("initialFactor")) {
-                            mOptions.getJSONObject("new").put("initialFactor",
-                                    (int) (Integer.parseInt((String) entry.getValue()) * 10));
-                        } else if (entry.getKey().equals("newOrder")) {
-                            mOptions.getJSONObject("new").put("order", Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("newPerDay")) {
-                            mOptions.getJSONObject("new").put("perDay", Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("newSeparate")) {
-                            mOptions.getJSONObject("new").put("separate", (Boolean) entry.getValue());
-                        } else if (entry.getKey().equals("revPerDay")) {
-                            mOptions.getJSONObject("rev").put("perDay", Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("revSpaceMax")) {
-                            mOptions.getJSONObject("rev").put("fuzz",
-                                    Integer.parseInt((String) entry.getValue()) / 100.0f);
-                        } else if (entry.getKey().equals("revSpaceMin")) {
-                            mOptions.getJSONObject("rev").put("minSpace", Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("easyBonus")) {
-                            mOptions.getJSONObject("rev").put("ease4",
-                                    Integer.parseInt((String) entry.getValue()) / 100.0f);
-                        } else if (entry.getKey().equals("revIvlFct")) {
-                            mOptions.getJSONObject("rev").put("ivlFct", Double.parseDouble((String) entry.getValue()));
-                        } else if (entry.getKey().equals("revMaxIvl")) {
-                            mOptions.getJSONObject("rev").put("maxIvl", Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("lapSteps")) {
-                            String steps = (String) entry.getValue();
-                            if (steps.matches("[0-9\\s]*")) {
-                                mOptions.getJSONObject("lapse").put("delays", getDelays(steps));
+                        } else if (key.equals("confReset")) {
+                            if ((Boolean) value) {
+                                DeckTask.launchDeckTask(DeckTask.TASK_TYPE_CONF_RESET, mConfChangeHandler,
+                                        new DeckTask.TaskData(new Object[]{mCol, mOptions}));
                             }
-                        } else if (entry.getKey().equals("lapNewIvl")) {
-                            mOptions.getJSONObject("lapse").put("mult", Float.parseFloat((String) entry.getValue()) / 100);
-                        } else if (entry.getKey().equals("lapMinIvl")) {
-                            mOptions.getJSONObject("lapse").put("minInt", Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("lapLeechThres")) {
-                            mOptions.getJSONObject("lapse").put("leechFails",
-                                    Integer.parseInt((String) entry.getValue()));
-                        } else if (entry.getKey().equals("lapLeechAct")) {
-                            mOptions.getJSONObject("lapse").put("leechAction",
-                                    Integer.parseInt((String) entry.getValue()));
+                        } else if (key.equals("confAdd")) {
+                            String newName = (String) value;
+                            if (!TextUtils.isEmpty(newName)) {
+                                // New config clones current config
+                                long id = mCol.getDecks().confId(newName, mOptions.toString());
+                                mDeck.put("conf", id);
+                                mCol.getDecks().save(mDeck);
+                            }
+                        } else if (key.equals("confRemove")) {
+                            if (mOptions.getLong("id") == 1) {
+                                Themes.showThemedToast(DeckOptions.this,
+                                        getResources().getString(R.string.default_conf_delete_error), false);
+                            } else {
+                                DeckTask.launchDeckTask(DeckTask.TASK_TYPE_CONF_REMOVE, mConfChangeHandler,
+                                        new DeckTask.TaskData(new Object[]{mCol, mOptions}));
+                                mDeck.put("conf", 1);
+                            }
+                        } else if (key.equals("confSetSubdecks")) {
+                            if ((Boolean) value) {
+                                DeckTask.launchDeckTask(DeckTask.TASK_TYPE_CONF_SET_SUBDECKS, mConfChangeHandler,
+                                        new DeckTask.TaskData(new Object[]{mCol, mDeck, mOptions}));
+                            }
                         }
                     }
                 } catch (JSONException e) {
@@ -228,6 +265,7 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
 
                 // make sure we refresh the parent cached values
                 cacheValues();
+                buildLists();
                 updateSummaries();
 
                 // and update any listeners
@@ -292,7 +330,29 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
                 // TODO Auto-generated method stub
                 return null;
             }
+            
+            private DeckTask.TaskListener mConfChangeHandler = new DeckTask.TaskListener() {
+                @Override
+                public void onPreExecute() {
+                    Resources res = getResources();
+                    mProgressDialog = StyledProgressDialog.show(DeckOptions.this, "",
+                            res.getString(R.string.reordering_cards), true);
+                }
 
+
+                @Override
+                public void onProgressUpdate(DeckTask.TaskData... values) {
+                }
+
+                
+                @Override
+                public void onPostExecute(DeckTask.TaskData result) {
+                    cacheValues();
+                    buildLists();
+                    updateSummaries();
+                    mProgressDialog.dismiss();
+                }
+            };
         }
 
 
@@ -441,9 +501,18 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
     }
 
     protected void updateSummaries() {
+        Resources res = getResources();
         // for all text preferences, set summary as current database value
         for (String key : mPref.mValues.keySet()) {
             Preference pref = this.findPreference(key);
+            if (key.equals("deckConf")) {
+                String groupName = getOptionsGroupName();
+                int count = getOptionsGroupCount();
+                pref.setSummary(res.getQuantityString(R.plurals.deck_conf_group_summ,
+                        count, groupName, count));
+                continue;
+            }
+                        
             String value = null;
             if (pref == null) {
                 continue;
@@ -467,6 +536,10 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
                 pref.setSummary(value);
             }
         }
+        // Update summaries of preference items that don't have values (aren't in mValues)
+        int subDeckCount = getSubdeckCount();
+        this.findPreference("confSetSubdecks").setSummary(res.getQuantityString(
+                R.plurals.deck_conf_set_subdecks_summ, subDeckCount, subDeckCount));
     }
 
 
@@ -501,27 +574,63 @@ public class DeckOptions extends PreferenceActivity implements OnSharedPreferenc
     }
 
 
-    public static String getDelays(JSONArray a) {
-        StringBuilder sb = new StringBuilder();
+
+
+
+    /**
+     * Returns the number of decks using the options group of the current deck.
+     */
+    private int getOptionsGroupCount() {
+        int count = 0;
         try {
-            for (int i = 0; i < a.length(); i++) {
-                sb.append(a.getString(i)).append(" ");
+            long conf = mDeck.getLong("conf");
+            for (JSONObject deck : mCol.getDecks().all()) {
+                if (deck.getInt("dyn") == 1) {
+                    continue;
+                }
+                if (deck.getLong("conf") == conf) {
+                    count++;
+                }
             }
         } catch (JSONException e) {
             throw new RuntimeException(e);
         }
-        return sb.toString().trim();
+        return count;
     }
-
-
-    public static JSONArray getDelays(String delays) {
-        JSONArray ja = new JSONArray();
-        for (String s : delays.split(" ")) {
-            ja.put(Integer.parseInt(s));
+    
+    /**
+     * Get the name of the currently set options group
+     */
+    private String getOptionsGroupName() {
+        long confId = mPref.getLong("deckConf", 0);
+        try {
+            return mCol.getDecks().getConf(confId).getString("name");
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
         }
-        return ja;
     }
 
+    /**
+     * Get the number of (non-dynamic) subdecks for the current deck
+     */
+    private int getSubdeckCount() {
+        try {
+            int count = 0;
+            long did = mDeck.getLong("id");
+            TreeMap<String, Long> children = mCol.getDecks().children(did);
+            for (Map.Entry<String, Long> entry : children.entrySet()) {
+                JSONObject child = mCol.getDecks().get(entry.getValue());
+                if (child.getInt("dyn") == 1) {
+                    continue;
+                }
+                count++;
+            }
+            return count;
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    
     public class JSONNameComparator implements Comparator<JSONObject> {
         @Override
         public int compare(JSONObject lhs, JSONObject rhs) {

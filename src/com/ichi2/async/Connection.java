@@ -70,6 +70,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -80,7 +81,7 @@ import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-public class Connection extends AsyncTask<Connection.Payload, Object, Connection.Payload> {
+public class Connection extends BaseAsyncTask<Connection.Payload, Object, Connection.Payload> {
 
     public static final int TASK_TYPE_LOGIN = 0;
     public static final int TASK_TYPE_SYNC = 1;
@@ -133,6 +134,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
      */
     @Override
     protected void onCancelled() {
+        super.onCancelled();
         if (mCancelCallback != null) {
             mCancelCallback.cancelAllConnections();
         }
@@ -146,6 +148,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
      */
     @Override
     protected void onPreExecute() {
+        super.onPreExecute();
         if (mListener != null) {
             mListener.onPreExecute();
         }
@@ -157,6 +160,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
      */
     @Override
     protected void onPostExecute(Payload data) {
+        super.onPostExecute(data);
         if (mListener != null) {
             mListener.onPostExecute(data);
         }
@@ -168,6 +172,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
      */
     @Override
     protected void onProgressUpdate(Object... values) {
+        super.onProgressUpdate(values);
         if (mListener != null) {
             mListener.onProgressUpdate(values);
         }
@@ -244,6 +249,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
 
     @Override
     protected Payload doInBackground(Payload... params) {
+        super.doInBackground(params);
         if (params.length != 1)
             throw new IllegalArgumentException();
         return doOneInBackground(params[0]);
@@ -353,7 +359,6 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
                 // set journal mode to delete
                 try {
                     AnkiDb d = AnkiDatabaseManager.getDatabase(deckPath);
-                    d.queryString("PRAGMA journal_mode = DELETE");
                 } catch (SQLiteDatabaseCorruptException e) {
                     // ignore invalid .anki files
                     corruptFiles.add(f.getName());
@@ -609,6 +614,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
             Log.i(AnkiDroidApp.TAG, "Sync - starting sync");
             publishProgress(R.string.sync_prepare_syncing);
             Object[] ret = client.sync(this);
+            data.message = client.getSyncMsg();
             mediaUsn = client.getmMediaUsn();
             if (ret == null) {
                 data.success = false;
@@ -721,7 +727,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
             return data;
         } else {
             data.success = true;
-            TreeSet<Object[]> decks = col.getSched().deckDueTree(Sched.DECK_INFORMATION_SIMPLE_COUNTS);
+            TreeSet<Object[]> decks = col.getSched().deckDueTree();
             int[] counts = new int[] { 0, 0, 0 };
             for (Object[] deck : decks) {
                 if (((String[]) deck[0]).length == 1) {
@@ -953,16 +959,21 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
         String url = (String) data.data[0];
         String colFilename = AnkiDroidApp.getCurrentAnkiDroidDirectory() + "/tmpImportFile.apkg";
         URL fileUrl;
-        HttpsURLConnection conn;
+        URLConnection conn;
         InputStream cont = null;
 		try {
-			fileUrl = new URL(url);
-            SSLContext context = SSLContext.getInstance("TLS");
-            context.init(null, new TrustManager[] { new EasyX509TrustManager(null) }, null);
-	        conn = (HttpsURLConnection)fileUrl.openConnection();
-            conn.setSSLSocketFactory(context.getSocketFactory());
+		    fileUrl = new URL(url);
+		    if (url.startsWith("https")) {
+	            SSLContext context = SSLContext.getInstance("TLS");
+	            context.init(null, new TrustManager[] { new EasyX509TrustManager(null) }, null);
+	            HttpsURLConnection httpsConn = (HttpsURLConnection)fileUrl.openConnection();
+	            httpsConn.setSSLSocketFactory(context.getSocketFactory());
+	            conn = httpsConn;
+		    } else {
+		        conn = (HttpURLConnection)fileUrl.openConnection();
+		    }
 	        conn.setConnectTimeout(10000);
-	        conn.setReadTimeout(10000);        
+	        conn.setReadTimeout(10000);
 	        cont = conn.getInputStream();
 		} catch (MalformedURLException e) {
             Log.e(AnkiDroidApp.TAG, "doInBackgroundDownloadSharedDeck: ", e);
@@ -1058,6 +1069,7 @@ public class Connection extends AsyncTask<Connection.Payload, Object, Connection
         public boolean success;
         public int returnType;
         public Exception exception;
+        public String message;
 
 
         public Payload() {

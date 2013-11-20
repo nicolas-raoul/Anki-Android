@@ -49,11 +49,12 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.SpannedString;
+import android.text.TextUtils;
 import android.text.style.StrikethroughSpan;
 import android.text.style.StyleSpan;
 import android.text.style.UnderlineSpan;
 import android.util.Log;
-import android.view.ActionMode;
+import android.util.TypedValue;
 import android.view.GestureDetector;
 import android.view.GestureDetector.SimpleOnGestureListener;
 import android.view.Gravity;
@@ -70,6 +71,7 @@ import android.view.animation.AccelerateDecelerateInterpolator;
 import android.view.animation.AccelerateInterpolator;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
@@ -104,10 +106,15 @@ import com.ichi2.widget.WidgetStatus;
 import org.amr.arabic.ArabicUtilities;
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 import org.xml.sax.XMLReader;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -121,6 +128,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Reviewer extends AnkiActivity {
+
+    /**
+     * Whether to save the content of the card in the file system.
+     * <p>
+     * Set this to true for debugging only.
+     */
+    private static final boolean SAVE_CARD_CONTENT = false;
+
     /**
      * Result codes that are returned when this activity finishes.
      */
@@ -154,7 +169,8 @@ public class Reviewer extends AnkiActivity {
     private static final int MENU_CLEAR_WHITEBOARD = 1;
     private static final int MENU_EDIT = 2;
     private static final int MENU_REMOVE = 3;
-    private static final int MENU_REMOVE_BURY = 31;
+    private static final int MENU_REMOVE_BURY_CARD = 30;
+    private static final int MENU_REMOVE_BURY_NOTE = 31;
     private static final int MENU_REMOVE_SUSPEND_CARD = 32;
     private static final int MENU_REMOVE_SUSPEND_NOTE = 33;
     private static final int MENU_REMOVE_DELETE = 34;
@@ -181,6 +197,9 @@ public class Reviewer extends AnkiActivity {
 
     /** The percentage of the absolute font size specified in the deck. */
     private int mDisplayFontSize = 100;
+
+    /** The percentage of the original image size in the deck. */
+    private int mDisplayImageSize = 100;
 
     /** Pattern for font-size style declarations */
     private static final Pattern fFontSizePattern = Pattern.compile(
@@ -210,9 +229,9 @@ public class Reviewer extends AnkiActivity {
     private boolean mInputWorkaround;
     private boolean mLongClickWorkaround;
     private boolean mPrefFullscreenReview;
-    private boolean mshowNextReviewTime;
     private boolean mZoomEnabled;
     private String mCollectionFilename;
+    private int mRelativeImageSize;
     private int mRelativeButtonSize;
     private boolean mDoubleScrolling;
     private boolean mScrollingButtons;
@@ -221,6 +240,8 @@ public class Reviewer extends AnkiActivity {
     private int mShakeIntensity;
     private boolean mShakeActionStarted = false;
     private boolean mPrefFixArabic;
+    private boolean mPrefForceQuickUpdate;
+    private boolean mDisplayKanjiInfo = false;
     // Android WebView
     private boolean mSpeakText;
     private boolean mInvertedColors = false;
@@ -230,11 +251,16 @@ public class Reviewer extends AnkiActivity {
     private boolean mShowProgressBars;
     private boolean mPrefFadeScrollbars;
     private boolean mPrefUseTimer;
+    private boolean mPrefCenterVertically;
     private boolean mShowAnimations = false;
     private boolean mSimpleInterface = false;
     private boolean mCurrentSimpleInterface = false;
     private ArrayList<String> mSimpleInterfaceExcludeTags;
     private int mAvailableInCardWidth;
+
+    // Preferences from the collection
+    private boolean mShowNextReviewTime;
+    private boolean mShowRemainingCardCount;
 
     // Answer card & cloze deletion variables
     /** The correct answer in the compare to field if answer should be given by learner.
@@ -314,8 +340,19 @@ public class Reviewer extends AnkiActivity {
 
     private long mSavedTimer = 0;
 
-    private boolean mRefreshWebview = false;
-    private Map<String, AnkiFont> mCustomFonts;
+    /**
+     * Whether to use a single {@link WebView} and update its content.
+     *
+     * <p>If false, we will instead use two WebViews and switch them when changing the content. This is needed because
+     * of a bug in some versions of Android.
+     */
+    private boolean mUseQuickUpdate = false;
+    /**
+     * Maps font names into {@link AnkiFont} objects corresponding to them.
+     *
+     * <p>Should not be accessed directly but via {@link #getCustomFontsMap()}, as it is lazily initialized.
+     */
+    private Map<String, AnkiFont> mCustomFontsMap;
     private String mCustomDefaultFontCss;
     private String mCustomFontStyle;
 
@@ -391,6 +428,9 @@ public class Reviewer extends AnkiActivity {
     private Method mSetTextIsSelectable = null;
 
     private Sched mSched;
+
+    // Stores kanji to display their meaning after answering cards
+    private static HashMap<String, String> sKanjiInfo = new HashMap<String, String>();
 
     // private int zEase;
 
@@ -704,8 +744,8 @@ public class Reviewer extends AnkiActivity {
                 }
                 Themes.showThemedToast(Reviewer.this, leechMessage, true);
             }
-            
-            mCurrentCard = values[0].getCard();            
+
+            mCurrentCard = values[0].getCard();
             if (mCurrentCard == null) {
                 // If the card is null means that there are no more cards scheduled for review.
                 mNoMoreCards = true;
@@ -724,13 +764,13 @@ public class Reviewer extends AnkiActivity {
                 Reviewer.this.unblockControls();
                 Reviewer.this.displayCardQuestion();
             }
-            
+
             // Since reps are incremented on fetch of next card, we will miss counting the
             // last rep since there isn't a next card. We manually account for it here.
             if (mNoMoreCards) {
                 mSched.setReps(mSched.getReps() + 1);
             }
-            
+
             Long[] elapsed = AnkiDroidApp.getCol().timeboxReached();
             if (elapsed != null) {
                 int nCards = elapsed[1].intValue();
@@ -740,7 +780,7 @@ public class Reviewer extends AnkiActivity {
                 Themes.showThemedToast(Reviewer.this, timeboxMessage, true);
                 AnkiDroidApp.getCol().startTimebox();
             }
-            
+
             // if (mChosenAnswer.getText().equals("")) {
             // setDueMessage();
             // }
@@ -925,7 +965,7 @@ public class Reviewer extends AnkiActivity {
                 mCurrentBackgroundColor = Color.WHITE;
             }
 
-            mRefreshWebview = getRefreshWebviewAndInitializeWebviewVariables();
+            mUseQuickUpdate = shouldUseQuickUpdate();
 
             initLayout(R.layout.flashcard);
 
@@ -964,7 +1004,7 @@ public class Reviewer extends AnkiActivity {
             // as the card to answer, no card will be answered.
             DeckTask.launchDeckTask(DeckTask.TASK_TYPE_ANSWER_CARD, mAnswerCardHandler, new DeckTask.TaskData(mSched,
                     null, 0));
-            
+
             // Since we aren't actually answering a card, decrement the rep count
             mSched.setReps(mSched.getReps() - 1);
         }
@@ -1042,9 +1082,9 @@ public class Reviewer extends AnkiActivity {
         if (!isFinishing()) {
             // try {
         	if (AnkiDroidApp.colIsOpen()) {
-                WidgetStatus.update(this, mSched.progressToday(null, mCurrentCard, true));        		
+                WidgetStatus.update(this, mSched.progressToday(null, mCurrentCard, true));
         	}
-            
+
             // } catch (JSONException e) {
             // throw new RuntimeException(e);
             // }
@@ -1197,7 +1237,8 @@ public class Reviewer extends AnkiActivity {
 
         SubMenu removeDeckSubMenu = menu.addSubMenu(Menu.NONE, MENU_REMOVE, Menu.NONE, R.string.menu_dismiss_note);
         removeDeckSubMenu.setIcon(R.drawable.ic_menu_stop);
-        removeDeckSubMenu.add(Menu.NONE, MENU_REMOVE_BURY, Menu.NONE, R.string.menu_bury_note);
+        removeDeckSubMenu.add(Menu.NONE, MENU_REMOVE_BURY_CARD, Menu.NONE, R.string.menu_bury_card);
+        removeDeckSubMenu.add(Menu.NONE, MENU_REMOVE_BURY_NOTE, Menu.NONE, R.string.menu_bury_note);
         removeDeckSubMenu.add(Menu.NONE, MENU_REMOVE_SUSPEND_CARD, Menu.NONE, R.string.menu_suspend_card);
         removeDeckSubMenu.add(Menu.NONE, MENU_REMOVE_SUSPEND_NOTE, Menu.NONE, R.string.menu_suspend_note);
         removeDeckSubMenu.add(Menu.NONE, MENU_REMOVE_DELETE, Menu.NONE, R.string.menu_delete_note);
@@ -1260,7 +1301,7 @@ public class Reviewer extends AnkiActivity {
                             }
                         }
                         if (AnkiDroidApp.colIsOpen()) {
-                            onCreate(mSavedInstanceState);                        	
+                            onCreate(mSavedInstanceState);
                         } else {
                             finish();
                         }
@@ -1295,14 +1336,24 @@ public class Reviewer extends AnkiActivity {
 
     private void clipboardSetText(CharSequence text) {
         if (mClipboard != null) {
-        	mClipboard.setText(text);
+            try {
+                mClipboard.setText(text);
+            } catch (Exception e) {
+                // https://code.google.com/p/ankidroid/issues/detail?id=1746
+                // https://code.google.com/p/ankidroid/issues/detail?id=1820
+                // Some devices or external applications make the clipboard throw exceptions. If this happens, we
+                // must disable it or AnkiDroid will crash if it tries to use it.
+                Log.e(AnkiDroidApp.TAG, "Clipboard error. Disabling text selection setting.");
+                AnkiDroidApp.getSharedPrefs(getBaseContext()).edit().putBoolean("textSelection", false).commit();
+            }
         }
     }
 
 
     private CharSequence clipboardGetText() {
         if (mClipboard != null) {
-            return mClipboard.getText();
+            CharSequence charSeq = mClipboard.getText();
+            return charSeq != null ? charSeq : "";
         } else {
         	return "";
         }
@@ -1363,8 +1414,14 @@ public class Reviewer extends AnkiActivity {
 
             case MENU_EDIT:
                 return editCard();
-
-            case MENU_REMOVE_BURY:
+                
+            case MENU_REMOVE_BURY_CARD:
+                setNextCardAnimation(false);
+                DeckTask.launchDeckTask(DeckTask.TASK_TYPE_DISMISS_NOTE, mDismissCardHandler, new DeckTask.TaskData(
+                        mSched, mCurrentCard, 4));
+                return true;
+                
+            case MENU_REMOVE_BURY_NOTE:
                 setNextCardAnimation(false);
                 DeckTask.launchDeckTask(DeckTask.TASK_TYPE_DISMISS_NOTE, mDismissCardHandler, new DeckTask.TaskData(
                         mSched, mCurrentCard, 0));
@@ -1488,7 +1545,7 @@ public class Reviewer extends AnkiActivity {
                 mProgressDialog = StyledProgressDialog.show(Reviewer.this, "",
                         getResources().getString(R.string.saving_changes), true);
             }
-            DeckTask.launchDeckTask(DeckTask.TASK_TYPE_UNDO, mAnswerCardHandler, new DeckTask.TaskData(mSched));    		
+            DeckTask.launchDeckTask(DeckTask.TASK_TYPE_UNDO, mAnswerCardHandler, new DeckTask.TaskData(mSched));
     	}
     }
 
@@ -1581,7 +1638,7 @@ public class Reviewer extends AnkiActivity {
                 return easy ? EASE_EASY : EASE_MID;
             default:
                 return 0;
-            }    		
+            }
     	} catch (RuntimeException e) {
 			AnkiDroidApp.saveExceptionReportFile(e, "Reviewer-getRecommendedEase");
             closeReviewer(DeckPicker.RESULT_DB_ERROR, true);
@@ -1704,7 +1761,7 @@ public class Reviewer extends AnkiActivity {
         mNext1.setTextColor(res.getColor(R.color.next_time_failed_color));
         mNext2.setTextColor(res.getColor(R.color.next_time_usual_color));
 
-        if (!mshowNextReviewTime) {
+        if (!mShowNextReviewTime) {
             ((TextView) findViewById(R.id.nextTimeflip)).setVisibility(View.GONE);
             mNext1.setVisibility(View.GONE);
             mNext2.setVisibility(View.GONE);
@@ -1719,6 +1776,12 @@ public class Reviewer extends AnkiActivity {
         mTextBarRed = (TextView) findViewById(R.id.red_number);
         mTextBarBlack = (TextView) findViewById(R.id.black_number);
         mTextBarBlue = (TextView) findViewById(R.id.blue_number);
+
+        if (!mShowRemainingCardCount) {
+            mTextBarRed.setVisibility(View.GONE);
+            mTextBarBlack.setVisibility(View.GONE);
+            mTextBarBlue.setVisibility(View.GONE);
+        }
 
         if (mShowProgressBars) {
             mSessionProgressTotalBar = (View) findViewById(R.id.daily_bar);
@@ -1891,7 +1954,7 @@ public class Reviewer extends AnkiActivity {
         }
 
         // Show next review time
-        if (mshowNextReviewTime) {
+        if (mShowNextReviewTime) {
             mNext1.setText(mSched.nextIvlStr(mCurrentCard, 1));
             mNext2.setText(mSched.nextIvlStr(mCurrentCard, 2));
         if (buttonCount > 2) {
@@ -1949,18 +2012,22 @@ public class Reviewer extends AnkiActivity {
         if (mShowProgressBars) {
             switchVisibility(mProgressBars, visible, true);
         }
-        switchVisibility(mTextBarRed, visible, true);
-        switchVisibility(mTextBarBlack, visible, true);
-        switchVisibility(mTextBarBlue, visible, true);
+        if (mShowRemainingCardCount) {
+            switchVisibility(mTextBarRed, visible, true);
+            switchVisibility(mTextBarBlack, visible, true);
+            switchVisibility(mTextBarBlue, visible, true);
+        }
         switchVisibility(mChosenAnswer, visible, true);
     }
 
 
     private void initControls() {
         mCardFrame.setVisibility(View.VISIBLE);
-        mTextBarRed.setVisibility(View.VISIBLE);
-        mTextBarBlack.setVisibility(View.VISIBLE);
-        mTextBarBlue.setVisibility(View.VISIBLE);
+        if (mShowRemainingCardCount) {
+            mTextBarRed.setVisibility(View.VISIBLE);
+            mTextBarBlack.setVisibility(View.VISIBLE);
+            mTextBarBlue.setVisibility(View.VISIBLE);
+        }
         mChosenAnswer.setVisibility(View.VISIBLE);
         mFlipCardLayout.setVisibility(View.VISIBLE);
 
@@ -1983,12 +2050,13 @@ public class Reviewer extends AnkiActivity {
         mInvertedColors = mNightMode;
         mBlackWhiteboard = preferences.getBoolean("blackWhiteboard", true);
         mPrefFullscreenReview = preferences.getBoolean("fullscreenReview", false);
-        mshowNextReviewTime = preferences.getBoolean("showNextReviewTime", true);
         mZoomEnabled = preferences.getBoolean("zoom", false);
         mDisplayFontSize = preferences.getInt("relativeDisplayFontSize", 100);// Card.DEFAULT_FONT_SIZE_RATIO);
+        mRelativeImageSize = preferences.getInt("relativeImageSize", 100);
         mRelativeButtonSize = preferences.getInt("answerButtonSize", 100);
         mInputWorkaround = preferences.getBoolean("inputWorkaround", false);
         mPrefFixArabic = preferences.getBoolean("fixArabicText", false);
+        mPrefForceQuickUpdate = preferences.getBoolean("forceQuickUpdate", false);
         mSpeakText = preferences.getBoolean("tts", false);
         mShowProgressBars = preferences.getBoolean("progressBars", true);
         mPrefFadeScrollbars = preferences.getBoolean("fadeScrollbars", false);
@@ -1997,6 +2065,8 @@ public class Reviewer extends AnkiActivity {
         mWaitQuestionSecond = preferences.getInt("timeoutQuestionSeconds", 60);
         mScrollingButtons = preferences.getBoolean("scrolling_buttons", false);
         mDoubleScrolling = preferences.getBoolean("double_scrolling", false);
+        mDisplayKanjiInfo = preferences.getBoolean("displayKanjiInfo", false);
+        mPrefCenterVertically =  preferences.getBoolean("centerVertically", false);
 
         mGesturesEnabled = AnkiDroidApp.initiateGestures(this, preferences);
         if (mGesturesEnabled) {
@@ -2051,6 +2121,14 @@ public class Reviewer extends AnkiActivity {
         	}
         }
 
+        // These are preferences we pull out of the collection instead of SharedPreferences
+        try {
+            mShowNextReviewTime = AnkiDroidApp.getCol().getConf().getBoolean("estTimes");
+            mShowRemainingCardCount = AnkiDroidApp.getCol().getConf().getBoolean("dueCounts");
+        } catch (JSONException e) {
+            throw new RuntimeException();
+        }
+
         return preferences;
     }
 
@@ -2072,7 +2150,7 @@ public class Reviewer extends AnkiActivity {
 			if (mSimpleCard == null) {
 	            mSimpleCard = new ScrollTextView(this);
 	            Themes.setRegularFont(mSimpleCard);
-	            mSimpleCard.setTextSize(mSimpleCard.getTextSize() * mDisplayFontSize / 100);
+	            mSimpleCard.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10, getResources().getDisplayMetrics()) * mDisplayFontSize / 100);
 	            mSimpleCard.setGravity(Gravity.CENTER);
 	            try {
 	                mSetTextIsSelectable = TextView.class.getMethod("setTextIsSelectable", boolean.class);
@@ -2095,24 +2173,24 @@ public class Reviewer extends AnkiActivity {
 			}
 			if (mSimpleCard.getVisibility() != View.VISIBLE || (mCard != null && mCard.getVisibility() == View .VISIBLE)) {
 				mSimpleCard.setVisibility(View.VISIBLE);
-				mCard.setVisibility(View.GONE);				
+				mCard.setVisibility(View.GONE);
 			}
 		} else {
 			if (mCard == null) {
 	            mCard = createWebView();
-	            mCardFrame.addView(mCard);				
-	            if (mRefreshWebview) {
+                mCardFrame.addView(mCard);
+	            if (!mUseQuickUpdate) {
 	                mNextCard = createWebView();
 	                mNextCard.setVisibility(View.GONE);
 	                mCardFrame.addView(mNextCard, 0);
-		            mCard.setBackgroundColor(mCurrentBackgroundColor);        	
+		            mCard.setBackgroundColor(mCurrentBackgroundColor);
 
 	                mCustomFontStyle = getCustomFontsStyle() + getDefaultFontStyle();
 	            }
 			}
 			if (mCard.getVisibility() != View.VISIBLE || (mSimpleCard != null && mSimpleCard.getVisibility() == View .VISIBLE)) {
 				mSimpleCard.setVisibility(View.GONE);
-				mCard.setVisibility(View.VISIBLE);				
+				mCard.setVisibility(View.VISIBLE);
 			}
 		}
     }
@@ -2225,7 +2303,7 @@ public class Reviewer extends AnkiActivity {
     private void initTimer() {
         mShowTimer = mCurrentCard.showTimer();
         if (mShowTimer && mCardTimer.getVisibility() == View.INVISIBLE) {
-        	switchVisibility(mCardTimer, View.VISIBLE);        	
+        	switchVisibility(mCardTimer, View.VISIBLE);
         } else if (!mShowTimer && mCardTimer.getVisibility() != View.INVISIBLE) {
         	switchVisibility(mCardTimer, View.INVISIBLE);
         }
@@ -2298,6 +2376,59 @@ public class Reviewer extends AnkiActivity {
     }
 
 
+    private void loadKanjiInfo() {
+        if (!sKanjiInfo.isEmpty()) {
+            return;
+        }
+
+        File file;
+        InputStream is;
+
+        is = this.getResources().openRawResource(R.raw.kanji_info);
+        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+
+        String line;
+
+        try {
+            while (reader.ready()) {
+                line = reader.readLine();
+                if (line.length() == 0 || line.startsWith("#")) {
+                    continue;
+                }
+
+                try {
+                    String[] kanjiInfoPair = line.split(" ", 2);
+                    sKanjiInfo.put(kanjiInfoPair[0], kanjiInfoPair[1]);
+                } catch (IndexOutOfBoundsException e) {
+                    Log.i(AnkiDroidApp.TAG, "Malformed entry in kanji_info.txt: " + line);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private String addKanjiInfo(String answer) {
+        loadKanjiInfo();
+
+        String kanjiInfo;
+
+        kanjiInfo = "\n\n<br/><br/><table style=\"color: #000000; background-color: #FFFFFF\">\n";
+
+        for (int i = 0; i < answer.length(); i++) {
+            String chr = (answer.substring(i, i + 1));
+            if (sKanjiInfo.containsKey(chr)) {
+                kanjiInfo = kanjiInfo + "<tr><td>" + chr + "</td><td>" + sKanjiInfo.get(chr) + "</td></tr>\n";
+            }
+        }
+
+        kanjiInfo = kanjiInfo + "</table>\n";
+
+        return kanjiInfo;
+    }
+
+
     private void displayCardAnswer() {
         Log.i(AnkiDroidApp.TAG, "displayCardAnswer");
 
@@ -2311,6 +2442,10 @@ public class Reviewer extends AnkiActivity {
 
         String answer = mCurrentCard.getAnswer(mCurrentSimpleInterface);
         answer = typeAnsAnswerFilter(answer);
+
+        if (mDisplayKanjiInfo) {
+            answer = answer + addKanjiInfo(mCurrentCard.getQuestion(mCurrentSimpleInterface));
+        }
 
         String displayString = "";
 
@@ -2418,14 +2553,24 @@ public class Reviewer extends AnkiActivity {
 
             // CSS class for card-specific styling
             String cardClass = "card card" + (mCurrentCard.getOrd()+1);
-            
+
+            if (mPrefCenterVertically) {
+                cardClass += " vertically_centered";
+            }
+
             Log.i(AnkiDroidApp.TAG, "content card = \n" + content);
             StringBuilder style = new StringBuilder();
             style.append(mCustomFontStyle);
+            
+            // Scale images.
+            if (mRelativeImageSize != 100) {
+                style.append(String.format("img { zoom: %s }\n", mRelativeImageSize / 100.0));
+            }
             Log.i(AnkiDroidApp.TAG, "::style::" + style);
 
             if (mNightMode) {
                 content = HtmlColors.invertColors(content);
+                cardClass += " night_mode";
             }
 
             content = SmpToHtmlEntity(content);
@@ -2433,6 +2578,19 @@ public class Reviewer extends AnkiActivity {
                     style.toString()).replace("::class::", cardClass));
             Log.i(AnkiDroidApp.TAG, "base url = " + mBaseUrl);
 
+            if (SAVE_CARD_CONTENT) {
+                try {
+                    FileOutputStream f = new FileOutputStream(
+                            new File(AnkiDroidApp.getCurrentAnkiDroidDirectory(), "card.html"));
+                    try {
+                        f.write(mCardContent.toString().getBytes());
+                    } finally {
+                        f.close();
+                    }
+                } catch (IOException e) {
+                    Log.d(AnkiDroidApp.TAG, "failed to save card", e);
+                }
+            }
             fillFlashcard(mShowAnimations);
         }
 
@@ -2462,29 +2620,66 @@ public class Reviewer extends AnkiActivity {
      * Plays sounds (or TTS, if configured) for current shown side of card
      */
     private void playSounds() {
-    	// first check, if sound is activated for the current deck
-    	try {
-		long did = mCurrentCard.getODid();
-			if (!mSched.getCol().getDecks().confForDid(did == 0 ? mCurrentCard.getDid() : did).getBoolean("autoplay")) {
-				return;
-			}
+        try {
+            // first check, if sound is activated for the current deck
+            if (getConfigForCurrentCard().getBoolean("autoplay")) {
+                // We need to play the sounds from the proper side of the card
+                if (!mSpeakText) {
+                    Sound.playSounds(sDisplayAnswer ? MetaDB.LANGUAGES_QA_ANSWER : MetaDB.LANGUAGES_QA_QUESTION);
+                } else {
+                    // If the question is displayed or if the question should be replayed, read the question
+                    if (!sDisplayAnswer || getConfigForCurrentCard().getBoolean("replayq")) {
+                        readCardText(mCurrentCard, MetaDB.LANGUAGES_QA_QUESTION);
+                    }
+                    if (sDisplayAnswer) {
+                        readCardText(mCurrentCard, MetaDB.LANGUAGES_QA_ANSWER);
+                    }
+                }
+            }
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	        // We need to play the sounds from the proper side of the card
-	        if (!mSpeakText) {
-	            Sound.playSounds(sDisplayAnswer ? MetaDB.LANGUAGES_QA_ANSWER : MetaDB.LANGUAGES_QA_QUESTION);
-	        } else {
-	            if (sDisplayAnswer) {
-	            	if (mSched.getCol().getDecks().confForDid(mCurrentCard.getDid()).getBoolean("replayq")) {
-		                ReadText.textToSpeech(Utils.stripHTML(mCurrentCard.getQuestion(mCurrentSimpleInterface)), mCurrentCard.getDid(), mCurrentCard.getOrd(), MetaDB.LANGUAGES_QA_QUESTION);
-	    			}
-	                ReadText.textToSpeech(Utils.stripHTML(mCurrentCard.getPureAnswerForReading()), mCurrentCard.getDid(), mCurrentCard.getOrd(), MetaDB.LANGUAGES_QA_ANSWER);
-	            } else {
-	                ReadText.textToSpeech(Utils.stripHTML(mCurrentCard.getQuestion(mCurrentSimpleInterface)), mCurrentCard.getDid(), mCurrentCard.getOrd(), MetaDB.LANGUAGES_QA_QUESTION);
-	            }
-	        }
-		} catch (JSONException e) {
-			throw new RuntimeException(e);
-		}
+
+    /**
+     * Reads the text (using TTS) for the given side of a card.
+     *
+     * @param card The card to play TTS for
+     * @param cardSide The side of the current card to play TTS for
+     */
+    private static void readCardText(final Card card, final int cardSide) {
+        if (MetaDB.LANGUAGES_QA_QUESTION == cardSide) {
+            ReadText.textToSpeech(Utils.stripHTML(card.getQuestion(true)), getDeckIdForCard(card), card.getOrd(),
+                    MetaDB.LANGUAGES_QA_QUESTION);
+        } else if (MetaDB.LANGUAGES_QA_ANSWER == cardSide) {
+            ReadText.textToSpeech(Utils.stripHTML(card.getPureAnswerForReading()), getDeckIdForCard(card),
+                    card.getOrd(),
+                    MetaDB.LANGUAGES_QA_ANSWER);
+        }
+    }
+
+
+    /**
+     * Returns the configuration for the current {@link Card}.
+     *
+     * @return The configuration for the current {@link Card}
+     */
+    private JSONObject getConfigForCurrentCard() {
+        return mSched.getCol().getDecks().confForDid(getDeckIdForCard(mCurrentCard));
+    }
+
+
+    /**
+     * Returns the deck ID of the given {@link Card}.
+     *
+     * @param card The {@link Card} to get the deck ID
+     * @return The deck ID of the {@link Card}
+     */
+    private static long getDeckIdForCard(final Card card) {
+        // Try to get the configuration by the original deck ID (available in case of a cram deck),
+        // else use the direct deck ID (in case of a 'normal' deck.
+        return card.getODid() == 0 ? card.getDid() : card.getODid();
     }
 
 
@@ -2520,7 +2715,7 @@ public class Reviewer extends AnkiActivity {
             Log.i(AnkiDroidApp.TAG, "base url = " + mBaseUrl);
             if (mCurrentSimpleInterface && mSimpleCard != null) {
                 mSimpleCard.setText(mCardContent);
-            } else if (mRefreshWebview && mCard != null && mNextCard != null) {
+            } else if (!mUseQuickUpdate && mCard != null && mNextCard != null) {
                 mNextCard.setBackgroundColor(mCurrentBackgroundColor);
                 mNextCard.loadDataWithBaseURL(mBaseUrl, mCardContent.toString(), "text/html", "utf-8", null);
                 mNextCard.setVisibility(View.VISIBLE);
@@ -2562,7 +2757,7 @@ public class Reviewer extends AnkiActivity {
                         }
                 }
             }
-            if (!mShowAnimations && mCardTimer.getVisibility() == View.INVISIBLE) {
+            if (!mShowAnimations && mShowTimer && mCardTimer.getVisibility() == View.INVISIBLE) {
                 switchTopBarVisibility(View.VISIBLE);
             }
             if (!sDisplayAnswer) {
@@ -2638,7 +2833,7 @@ public class Reviewer extends AnkiActivity {
      */
     private String getCustomFontsStyle() {
         StringBuilder builder = new StringBuilder();
-        for (AnkiFont font : mCustomFonts.values()) {
+        for (AnkiFont font : getCustomFontsMap().values()) {
             builder.append(font.getDeclaration());
             builder.append('\n');
         }
@@ -2650,16 +2845,21 @@ public class Reviewer extends AnkiActivity {
     private String getDefaultFontStyle() {
         if (mCustomDefaultFontCss == null) {
             SharedPreferences preferences = AnkiDroidApp.getSharedPrefs(getBaseContext());
-            String defaultFont = preferences.getString("defaultFont", null);
-            if (defaultFont != null && !"".equals(defaultFont) && mCustomFonts.containsKey(defaultFont)) {
-                mCustomDefaultFontCss = "BODY .question, BODY .answer { " + mCustomFonts.get(defaultFont).getCSS() + " }\n";
+            AnkiFont defaultFont = getCustomFontsMap().get(preferences.getString("defaultFont", null));
+            if (defaultFont != null) {
+                mCustomDefaultFontCss = "BODY { " + defaultFont.getCSS() + " }\n";
             } else {
-                defaultFont = Themes.getReviewerFontName();
-                if (defaultFont == null || "".equals(defaultFont)) {
+                String defaultFontName = Themes.getReviewerFontName();
+                if (TextUtils.isEmpty(defaultFontName)) {
                     mCustomDefaultFontCss = "";
                 } else {
-                    mCustomDefaultFontCss = "BODY .question BODY .answer { font-family: '" + defaultFont +
-                            "' font-weight: normal; font-style: normal; font-stretch: normal; }\n";
+                    mCustomDefaultFontCss = String.format(
+                            "BODY {"
+                            + "font-family: '%s';"
+                            + "font-weight: normal;"
+                            + "font-style: normal;"
+                            + "font-stretch: normal;"
+                            + "}\n", defaultFontName);
                 }
             }
         }
@@ -2674,7 +2874,7 @@ public class Reviewer extends AnkiActivity {
 
     /**
      * Adds a div html tag around the contents to have an indication, where answer/question is displayed
-     * 
+     *
      * @param content
      * @param isAnswer if true then the class attribute is set to "answer", "question" otherwise.
      * @return
@@ -2704,7 +2904,7 @@ public class Reviewer extends AnkiActivity {
      * Anything that threatens common sense will break this logic, eg nested span/divs with CSS classes having font-size
      * declarations with relative units (40% dif inside 120% div inside 60% div). Broken HTML also breaks this.
      * Feel free to improve, but please keep it short and fast.
-     * 
+     *
      * @param content The HTML content that will be font-size-adjusted.
      * @param percentage The relative font size percentage defined in preferences
      * @return
@@ -2775,7 +2975,7 @@ public class Reviewer extends AnkiActivity {
     /**
      * Calculates a dynamic font size depending on the length of the contents taking into account that the input string
      * contains html-tags, which will not be displayed and therefore should not be taken into account.
-     * 
+     *
      * @param htmlContents
      * @return font size respecting MIN_DYNAMIC_FONT_SIZE and MAX_DYNAMIC_FONT_SIZE
      */
@@ -2917,22 +3117,55 @@ public class Reviewer extends AnkiActivity {
     }
 
 
-    public boolean getRefreshWebviewAndInitializeWebviewVariables() {
-        List<AnkiFont> fonts = Utils.getCustomFonts(getBaseContext());
-        mCustomFonts = new HashMap<String, AnkiFont>();
-        for (AnkiFont f : fonts) {
-            mCustomFonts.put(f.getName(), f);
-        }
+    /**
+     * @return true if the device is a Nook
+     */
+    private boolean isNookDevice() {
         for (String s : new String[] { "nook" }) {
             if (android.os.Build.DEVICE.toLowerCase().indexOf(s) != -1
                     || android.os.Build.MODEL.toLowerCase().indexOf(s) != -1) {
                 return true;
             }
         }
-        if (mCustomFonts.size() != 0) {
+        return false;
+    }
+
+
+    /**
+     * Returns a map from custom fonts names to the corresponding {@link AnkiFont} object.
+     *
+     * <p>The list of constructed lazily the first time is needed.
+     */
+    private Map<String, AnkiFont> getCustomFontsMap() {
+        if (mCustomFontsMap == null) {
+            List<AnkiFont> fonts = Utils.getCustomFonts(getBaseContext());
+            mCustomFontsMap = new HashMap<String, AnkiFont>();
+            for (AnkiFont f : fonts) {
+                mCustomFontsMap.put(f.getName(), f);
+            }
+        }
+        return mCustomFontsMap;
+    }
+
+
+    /**
+     * Returns true if we should update the content of a single {@link WebView} (called quick update) instead of switch
+     * between two instances.
+     *
+     * <p>Webview switching is needed in some versions of Android when using custom fonts because of a memory leak in
+     * WebView.
+     *
+     * <p>It is also needed to solve a refresh issue on Nook devices.
+     *
+     * @return true if we should use a single WebView
+     */
+    private boolean shouldUseQuickUpdate() {
+        if (mPrefForceQuickUpdate) {
+            // The user has requested us to use quick update in the preferences.
             return true;
         }
-        return false;
+        // Otherwise, use quick update only if there are no custom fonts.
+        return getCustomFontsMap().size() == 0 && !isNookDevice();
     }
 
 
@@ -2990,7 +3223,7 @@ public class Reviewer extends AnkiActivity {
                 break;
             case GESTURE_UNDO:
             	if(mSched.getCol().undoAvailable()) {
-                	undo();            		
+                	undo();
             	}
             	break;
             case GESTURE_EDIT:
@@ -3052,11 +3285,13 @@ public class Reviewer extends AnkiActivity {
         /**
          * This is not called on the UI thread. Send a message that will be handled on the UI thread.
          */
+        @JavascriptInterface
         public void playSound(String soundPath) {
             Message msg = Message.obtain();
             msg.obj = soundPath;
             mHandler.sendMessage(msg);
         }
+        @JavascriptInterface
         public int getAvailableWidth() {
             if (mCtx.mAvailableInCardWidth == 0) {
                 mCtx.mAvailableInCardWidth = mCtx.calcAvailableInCardWidth();
@@ -3278,7 +3513,7 @@ public class Reviewer extends AnkiActivity {
                 XMLReader xmlReader) {
 //            if(tag.equalsIgnoreCase("div")) {
 //            	output.append("\n");
-//            } else 
+//            } else
         	if(tag.equalsIgnoreCase("strike") || tag.equals("s")) {
                 int len = output.length();
                 if(opening) {
@@ -3319,7 +3554,7 @@ public class Reviewer extends AnkiActivity {
             if ((new File(path)).exists()) {
                 Drawable d = Drawable.createFromPath(path);
                 d.setBounds(0,0,d.getIntrinsicWidth(),d.getIntrinsicHeight());
-                return d;            	
+                return d;
             } else {
             	return null;
             }
@@ -3327,7 +3562,6 @@ public class Reviewer extends AnkiActivity {
     };
 
     private Spanned convertToSimple(String text) {
-    	text = text.replaceAll("</div>$", "").replaceAll("(</div>)*<div>", "<br>");
     	return Html.fromHtml(text, mSimpleInterfaceImagegetter, mSimpleInterfaceTagHandler);
     }
 }

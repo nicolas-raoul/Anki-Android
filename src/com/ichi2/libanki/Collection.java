@@ -29,6 +29,7 @@ import com.ichi2.anki.AnkiDroidApp;
 import com.ichi2.anki.Pair;
 import com.ichi2.anki.R;
 import com.ichi2.anki.UIUtils;
+import com.samskivert.mustache.MustacheException;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -56,9 +57,12 @@ public class Collection {
     // collection schema & syncing vars
     public static final int SCHEMA_VERSION = 11;
     public static final String SYNC_URL = "https://ankiweb.net/";
-    public static final int SYNC_VER = 5;
+    public static final int SYNC_VER = 8;
     public static final String HELP_SITE = "http://ankisrs.net/docs/manual.html";
-
+    private static final String TEMPLATE_ERROR = "<div style='background-color:#f44; color:#fff;'>%s</div>%s"+
+                                                 "<br><br><code style='font-size:80%%'>%s</code><br><br>"+
+                                                 "%s: <b>%s</b><br>%s: <b>%s</b><br><br>%s";
+    
     private AnkiDb mDb;
     private boolean mServer;
     private double mLastSave;
@@ -107,6 +111,8 @@ public class Collection {
     public static final int UNDO_SUSPEND_NOTE = 4;
     public static final int UNDO_DELETE_NOTE = 5;
     public static final int UNDO_MARK_NOTE = 6;
+    public static final int UNDO_BURY_CARD = 7;
+    
     private static final int[] fUndoNames = new int[]{
         R.string.undo_action_review,
         R.string.undo_action_edit,
@@ -115,7 +121,7 @@ public class Collection {
         R.string.undo_action_suspend_note,
         R.string.undo_action_delete,
         R.string.undo_action_mark};
-    
+
     private static final int UNDO_SIZE_MAX = 20;
 
     public Collection(AnkiDb db, String path) {
@@ -140,8 +146,11 @@ public class Collection {
         mStartReps = 0;
         mStartTime = 0;
         mSched = new Sched(this);
-        // check for improper shutdown
-        cleanup();
+        if (!mConf.optBoolean("newBury", false)) {
+            boolean mod = mDb.getMod();
+            mSched.unburyCards();
+            mDb.setMod(mod);
+        }
     }
 
 
@@ -156,19 +165,20 @@ public class Collection {
      * DB-related *************************************************************** ********************************
      */
 
-    public boolean load() {
+    public void load() {
         Cursor cursor = null;
         try {
             // Read in deck table columns
             cursor = mDb.getDatabase().rawQuery(
-                    "SELECT crt, mod, scm, dty, usn, ls, conf, " + "models, decks, dconf, tags FROM col", null);
+                    "SELECT crt, mod, scm, dty, usn, ls, " +
+                    "conf, models, decks, dconf, tags FROM col", null);
             if (!cursor.moveToFirst()) {
-                return false;
+                return;
             }
             mCrt = cursor.getLong(0);
             mMod = cursor.getLong(1);
             mScm = cursor.getLong(2);
-            mDty = cursor.getInt(3) == 1;
+            mDty = cursor.getInt(3) == 1; // No longer used
             mUsn = cursor.getInt(4);
             mLs = cursor.getLong(5);
             try {
@@ -179,7 +189,6 @@ public class Collection {
             mModels.load(cursor.getString(7));
             mDecks.load(cursor.getString(8), cursor.getString(9));
             mTags.load(cursor.getString(10));
-            return true;
         } finally {
             if (cursor != null) {
                 cursor.close();
@@ -277,12 +286,12 @@ public class Collection {
 
 
     public synchronized void close(boolean save) {
-        // if (wait) {
-        // Wait for any thread working on the deck to finish.
-        // DeckTask.waitToFinish();
-        // }
         if (mDb != null) {
-            cleanup();
+            if (!mConf.optBoolean("newBury", false)) {
+                boolean mod = mDb.getMod();
+                mSched.unburyCards();
+                mDb.setMod(mod);
+            }
             try {
                 SQLiteDatabase db = getDb().getDatabase();
                 if (save) {
@@ -298,7 +307,7 @@ public class Collection {
                         db.endTransaction();
                     }
                     lock();
-                }            	
+                }
             } catch (RuntimeException e) {
     			AnkiDroidApp.saveExceptionReportFile(e, "closeDB");
             }
@@ -331,34 +340,13 @@ public class Collection {
             }
         }
         mScm = Utils.intNow(1000);
+        setMod();
     }
 
 
     /** True if schema changed since last sync. */
     public boolean schemaChanged() {
         return mScm > mLs;
-    }
-
-
-    /**
-     * Signal there are temp. suspended cards that need cleaning up on close.
-     */
-    public void setDirty() {
-        mDty = true;
-    }
-    public void setDirty(boolean dty) {
-        mDty = dty;
-    }
-
-
-    /**
-     * Unsuspend any temporarily suspended cards.
-     */
-    public void cleanup() {
-        if (mDty) {
-            mSched.unburyCards();
-            mDty = false;
-        }
     }
 
 
@@ -373,16 +361,21 @@ public class Collection {
 
     /** called before a full upload */
     public void beforeUpload() {
-        String[] tables = new String[] { "notes", "cards", "revlog", "graves" };
+        String[] tables = new String[] { "notes", "cards", "revlog" };
         for (String t : tables) {
             mDb.execute("UPDATE " + t + " SET usn=0 WHERE usn=-1");
         }
+        // we can save space by removing the log of deletions
+        mDb.execute("delete from graves");
         mUsn += 1;
         mModels.beforeUpload();
         mTags.beforeUpload();
         mDecks.beforeUpload();
         modSchema();
         mLs = mScm;
+        // ensure db is compacted before upload
+        mDb.execute("vacuum");
+        mDb.execute("analyze");
         close();
     }
 
@@ -747,7 +740,7 @@ public class Collection {
             	// must not be a filtered deck
             	card.setDid(1);
             } else {
-                card.setDid(deck.getLong("id"));            	
+                card.setDid(deck.getLong("id"));
             }
         } catch (JSONException e) {
             throw new RuntimeException(e);
@@ -925,7 +918,7 @@ public class Collection {
         for (String fname : fmap.keySet()) {
             fields.put(fname, flist[fmap.get(fname).first]);
         }
-        fields.put("Tags", (String) data[5]);
+        fields.put("Tags", ((String)data[5]).trim());
         try {
             fields.put("Type", (String) model.get("name"));
             fields.put("Deck", mDecks.name((Long) data[3]));
@@ -937,51 +930,63 @@ public class Collection {
             }
             fields.put("Card", template.getString("name"));
             fields.put("c" + (((Integer) data[4]) + 1), "1");
-
+            
             // render q & a
             HashMap<String, String> d = new HashMap<String, String>();
-            d.put("id", Long.toString((Long) data[0]));
-            String qfmt = template.getString("qfmt");
-            String afmt = template.getString("afmt");
-            String html;
-            String format;
-
-            // runFilter mungeFields for type "q"
-            Models.fieldParser fparser = new Models.fieldParser(fields);
-            Matcher m = fClozePattern.matcher(qfmt);
-            format = m.replaceFirst(String.format(Locale.US, "{{cq:%d:", ((Integer) data[4]) + 1));
-            m = fAltClozePattern.matcher(format);
-            format = m.replaceFirst(String.format(Locale.US, "<%%cq:%d:",((Integer) data[4]) + 1));
-            html = mModels.getCmpldTemplate(format).execute(fparser);
-            html = (String) AnkiDroidApp.getHooks().runFilter("mungeQA", html, "q", fields, model, data, this);
-            d.put("q", html);
-            // empty cloze?
-            if (model.getInt("type") == Sched.MODEL_CLOZE) {
-                if (getModels()._availClozeOrds(model, (String) data[6], false).size() == 0) {
-                    d.put("q", "Please edit this note and add some cloze deletions.");
+            try {
+                d.put("id", Long.toString((Long) data[0]));
+                String qfmt = template.getString("qfmt");
+                String afmt = template.getString("afmt");
+                String html;
+                String format;
+    
+                // runFilter mungeFields for type "q"
+                Models.fieldParser fparser = new Models.fieldParser(fields);
+                Matcher m = fClozePattern.matcher(qfmt);
+                format = m.replaceFirst(String.format(Locale.US, "{{cq:%d:", ((Integer) data[4]) + 1));
+                m = fAltClozePattern.matcher(format);
+                format = m.replaceFirst(String.format(Locale.US, "<%%cq:%d:",((Integer) data[4]) + 1));
+                html = mModels.getCmpldTemplate(format).execute(fparser);
+                html = (String) AnkiDroidApp.getHooks().runFilter("mungeQA", html, "q", fields, model, data, this);
+                d.put("q", html);
+                // empty cloze?
+                if (model.getInt("type") == Sched.MODEL_CLOZE) {
+                    if (getModels()._availClozeOrds(model, (String) data[6], false).size() == 0) {
+                        d.put("q", "Please edit this note and add some cloze deletions.");
+                    }
                 }
-            }
-            fields.put("FrontSide", mMedia.stripAudio(d.get("q")));
-
-            // runFilter mungeFields for type "a"
-            fparser = new Models.fieldParser(fields);
-            m = fClozePattern.matcher(afmt);
-            format = m.replaceFirst(String.format(Locale.US, "{{ca:%d:", ((Integer) data[4]) + 1));
-            m = fAltClozePattern.matcher(format);
-            format = m.replaceFirst(String.format(Locale.US, "<%%ca:%d:", ((Integer) data[4]) + 1));
-            html = mModels.getCmpldTemplate(format).execute(fparser);
-            html = (String) AnkiDroidApp.getHooks().runFilter("mungeQA", html, "a", fields, model, data, this);
-            d.put("a", html);
-            // empty cloze?
-            if (model.getInt("type") == Sched.MODEL_CLOZE) {
-                if (getModels()._availClozeOrds(model, (String) data[6], false).size() == 0) {
-                    d.put("q",
-                            AnkiDroidApp.getAppResources().getString(
-                                    com.ichi2.anki.R.string.empty_cloze_warning,
-                                    "<a href=" + HELP_SITE + "#cloze>" +
-                                    AnkiDroidApp.getAppResources().getString(
-                                            com.ichi2.anki.R.string.help_cloze) + "</a>"));
+                fields.put("FrontSide", mMedia.stripAudio(d.get("q")));
+    
+                // runFilter mungeFields for type "a"
+                fparser = new Models.fieldParser(fields);
+                m = fClozePattern.matcher(afmt);
+                format = m.replaceFirst(String.format(Locale.US, "{{ca:%d:", ((Integer) data[4]) + 1));
+                m = fAltClozePattern.matcher(format);
+                format = m.replaceFirst(String.format(Locale.US, "<%%ca:%d:", ((Integer) data[4]) + 1));
+                html = mModels.getCmpldTemplate(format).execute(fparser);
+                html = (String) AnkiDroidApp.getHooks().runFilter("mungeQA", html, "a", fields, model, data, this);
+                d.put("a", html);
+                // empty cloze?
+                if (model.getInt("type") == Sched.MODEL_CLOZE) {
+                    if (getModels()._availClozeOrds(model, (String) data[6], false).size() == 0) {
+                        d.put("q",
+                                AnkiDroidApp.getAppResources().getString(
+                                        com.ichi2.anki.R.string.empty_cloze_warning,
+                                        "<a href=" + HELP_SITE + "#cloze>" +
+                                        AnkiDroidApp.getAppResources().getString(
+                                                com.ichi2.anki.R.string.help_cloze) + "</a>"));
+                    }
                 }
+            } catch (MustacheException e) {
+                Resources res = AnkiDroidApp.getAppResources();
+                
+                String templateError = String.format(TEMPLATE_ERROR, res.getString(R.string.template_error),
+                        res.getString(R.string.template_error_detail), e.getMessage(),
+                        res.getString(R.string.note_type), model.getString("name"),
+                        res.getString(R.string.card_type), template.getString("name"),
+                        res.getString(R.string.template_error_fix));
+                d.put("q", templateError);
+                d.put("a", templateError);
             }
 
             return d;
@@ -1039,7 +1044,7 @@ public class Collection {
     public List<Long> findCards(String search, Boolean order) {
         return new Finder(this).findCards(search, order.toString());
     }
-    
+
     public ArrayList<HashMap<String, String>> findCardsForCardBrowser(String search, String order, HashMap<String, String> deckNames) {
         return new Finder(this).findCardsForCardBrowser(search, order, deckNames);
     }
@@ -1141,7 +1146,7 @@ public class Collection {
      */
 
     /**
-     * [type, undoName, data] type 1 = review; type 2 = 
+     * [type, undoName, data] type 1 = review; type 2 =
      */
     public void clearUndo() {
         mUndo = new LinkedList<Object[]>();
@@ -1175,6 +1180,9 @@ public class Collection {
             // and delete revlog entry
             long last = mDb.queryLongScalar("SELECT id FROM revlog WHERE cid = " + c.getId() + " ORDER BY id DESC LIMIT 1");
             mDb.execute("DELETE FROM revlog WHERE id = " + last);
+            // restore any siblings
+            mDb.execute("update cards set queue=type,mod=?,usn=? where queue=-2 and nid=?",
+                    new Object[]{ Utils.intNow(), usn(), c.getNid() });
             // and finally, update daily count
             int n = c.getQueue() == 3 ? 1 : c.getQueue();
             String type = (new String[] { "new", "lrn", "rev" })[n];
@@ -1192,8 +1200,10 @@ public class Collection {
                 if (getDecks().active().contains(newCard.getDid())) {
                     card = newCard;
                     card.load();
-                    // reload qa-cache
-                    card.getQuestion(true);
+                    // Reloads the QA-cache.
+                    // Requests the simple interface version, since the only difference
+                    // is whether the CSS is added and that's not cached.
+                    card.getQuestion(true, true);
                 }
             }
             if (card == null) {
@@ -1205,7 +1215,6 @@ public class Collection {
     		return 0;
 
     	case UNDO_BURY_NOTE:
-    		setDirty((Boolean)data[1]);
     		for (Card cc : (ArrayList<Card>)data[2]) {
     			cc.flush(false);
     		}
@@ -1254,6 +1263,9 @@ public class Collection {
     	case UNDO_EDIT_NOTE:
     		mUndo.add(new Object[]{type, ((Note)o[0]).clone(), o[1], o[2]});
     		break;
+        case UNDO_BURY_CARD:
+            mUndo.add(new Object[]{type, o[0], o[1], o[2]});
+            break;
     	case UNDO_BURY_NOTE:
     		mUndo.add(new Object[]{type, o[0], o[1], o[2]});
     		break;
@@ -1274,10 +1286,60 @@ public class Collection {
     		mUndo.removeFirst();
     	}
     }
+    
+
+    public void markReview(Card card) {
+        markUndo(UNDO_REVIEW, new Object[]{card});
+    }
 
     /**
      * DB maintenance *********************************************************** ************************************
      */
+
+    
+    /*
+     * Basic integrity check for syncing. True if ok.
+     */
+    public boolean basicCheck() {
+        // cards without notes
+        if (mDb.queryScalar("select 1 from cards where nid not in (select id from notes) limit 1", false) > 0) {
+            return false;
+        }
+        boolean badNotes = mDb.queryScalar(String.format(Locale.US,
+                "select 1 from notes where id not in (select distinct nid from cards) " +
+                "or mid not in %s limit 1", Utils.ids2str(mModels.ids())), false) > 0;
+        // notes without cards or models
+        if (badNotes) {
+            return false;
+        }
+        try {
+            // invalid ords
+            for (JSONObject m : mModels.all()) {
+                // ignore clozes
+                if (m.getInt("type") != Sched.MODEL_STD) {
+                    continue;
+                }
+                // Make a list of valid ords for this model
+                JSONArray tmpls = m.getJSONArray("tmpls");
+                int[] ords = new int[tmpls.length()];
+                for (int t = 0; t < tmpls.length(); t++) {
+                    ords[t] = tmpls.getJSONObject(t).getInt("ord");
+                }
+                
+                boolean badOrd = mDb.queryScalar(String.format(Locale.US,
+                        "select 1 from cards where ord not in %s and nid in ( " +
+                        "select id from notes where mid = %d) limit 1",
+                        Utils.ids2str(ords), m.getLong("id")), false) > 0;
+                if (badOrd) {
+                    return false;
+                }
+            }
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+        return true;
+    }
+    
 
     /** Fix possible problems and rebuild caches. */
     public long fixIntegrity() {
@@ -1298,23 +1360,50 @@ public class Collection {
                 	problems.add("Deleted " + ids.size() + " note(s) with missing note type.");
 	                _remNotes(Utils.arrayList2array(ids));
                 }
-                // cards with invalid ordinal
+                // for each model
                 for (JSONObject m : mModels.all()) {
-                	// ignore clozes
-                	if (m.getInt("type") != Sched.MODEL_STD) {
-                		continue;
-                	}
-                	ArrayList<Integer> ords = new ArrayList<Integer>();
-                	JSONArray tmpls = m.getJSONArray("tmpls");
-                	for (int t = 0; t < tmpls.length(); t++) {
-                		ords.add(tmpls.getJSONObject(t).getInt("ord"));
-                	}
-                	ids = mDb.queryColumn(Long.class,
-                            "SELECT id FROM cards WHERE ord NOT IN " + Utils.ids2str(ords) + " AND nid IN (SELECT id FROM notes WHERE mid = " + m.getLong("id") + ")", 0);
-                	if (ids.size() > 0) {
-                    	problems.add("Deleted " + ids.size() + " card(s) with missing template.");
-    	                remCards(Utils.arrayList2array(ids));   		
-                	}
+                    // cards with invalid ordinal
+                    if (m.getInt("type") == Sched.MODEL_STD) {
+                        ArrayList<Integer> ords = new ArrayList<Integer>();
+                        JSONArray tmpls = m.getJSONArray("tmpls");
+                        for (int t = 0; t < tmpls.length(); t++) {
+                            ords.add(tmpls.getJSONObject(t).getInt("ord"));
+                        }
+                        ids = mDb.queryColumn(Long.class,
+                                "SELECT id FROM cards WHERE ord NOT IN " + Utils.ids2str(ords) + " AND nid IN ( " +
+                                "SELECT id FROM notes WHERE mid = " + m.getLong("id") + ")", 0);
+                        if (ids.size() > 0) {
+                            problems.add("Deleted " + ids.size() + " card(s) with missing template.");
+                            remCards(Utils.arrayList2array(ids));
+                        }
+                    }
+                    // notes with invalid field counts
+                    ids = new ArrayList<Long>();
+                    Cursor cur = null;
+                    try {
+                        cur = mDb.getDatabase().rawQuery("select id, flds from notes where mid = " + m.getLong("id"), null);
+                        while (cur.moveToNext()) {
+                            String flds = cur.getString(1);
+                            long id = cur.getLong(0);
+                            int fldsCount = 0;
+                            for (int i = 0; i < flds.length(); i++) {
+                                if (flds.charAt(i) == 0x1f) {
+                                    fldsCount++;
+                                }
+                            }
+                            if (fldsCount + 1 != m.getJSONArray("flds").length()) {
+                                ids.add(id);
+                            }
+                        }
+                        if (ids.size() > 0) {
+                            problems.add("Deleted " + ids.size() + " note(s) with wrong field count.");
+                            _remNotes(Utils.arrayList2array(ids));
+                        }
+                    } finally {
+                        if (cur != null && !cur.isClosed()) {
+                            cur.close();
+                        }
+                    }
                 }
                 // delete any notes with missing cards
                 ids = mDb.queryColumn(Long.class,
@@ -1323,7 +1412,7 @@ public class Collection {
                 	problems.add("Deleted " + ids.size() + " note(s) with missing no cards.");
 	                _remNotes(Utils.arrayList2array(ids));
                 }
-
+                // cards with missing notes
                 ids = mDb.queryColumn(Long.class,
                         "SELECT id FROM cards WHERE nid NOT IN (SELECT id FROM notes)", 0);
                 if (ids.size() != 0) {
@@ -1349,6 +1438,12 @@ public class Collection {
                             + " WHERE id IN " + Utils.ids2str(Utils.arrayList2array(ids)));
                 }
                 mDb.getDatabase().setTransactionSuccessful();
+                // DB must have indices. Older versions of AnkiDroid didn't create them for new collections.
+                int ixs = mDb.queryScalar("select count(name) from sqlite_master where type = 'index'");
+                if (ixs < 7) {
+                    problems.add("Indices were missing.");
+                    Storage.addIndices(mDb);
+                }
             } catch (JSONException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -1402,13 +1497,13 @@ public class Collection {
     public Models getModels() {
         return mModels;
     }
-    
+
     /** Check if this collection is valid. */
     public boolean validCollection() {
     	//TODO: more validation code
     	return mModels.validateModel();
     }
-    
+
     public JSONObject getConf() {
         return mConf;
     }
