@@ -65,6 +65,7 @@ import com.ichi2.async.DeckTask;
 import com.ichi2.filters.FilterFacade;
 import com.ichi2.libanki.Card;
 import com.ichi2.libanki.Collection;
+import com.ichi2.libanki.Decks;
 import com.ichi2.libanki.Note;
 import com.ichi2.libanki.Utils;
 import com.ichi2.themes.StyledDialog;
@@ -1030,7 +1031,8 @@ public class CardEditor extends Activity {
                 // Item(name)
                 final ArrayList<Long> dialogDeckIds = new ArrayList<Long>();
 
-                ArrayList<JSONObject> decks = mCol.getDecks().all();
+                Decks colDecks = mCol.getDecks();
+                ArrayList<JSONObject> decks = colDecks.all();
                 Collections.sort(decks, new JSONNameComparator());
                 builder.setTitle(R.string.deck);
                 for (JSONObject d : decks) {
